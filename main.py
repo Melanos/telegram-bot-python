@@ -164,15 +164,17 @@ try:
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
         btn_tasks = types.KeyboardButton("📋 List tasks")
         btn_add_task = types.KeyboardButton("➕ Add task")
+        btn_done_task = types.KeyboardButton("✅ Complete task")
         btn_stock = types.KeyboardButton("📈 Check stock price")
         keyboard.add(btn_tasks, btn_add_task)
-        keyboard.add(btn_stock)
+        keyboard.add(btn_done_task, btn_stock)
 
         bot.reply_to(
             message,
             "Here’s your menu:",
             reply_markup=keyboard,
         )
+
 
 
     @bot.message_handler(func=lambda msg: True)
@@ -212,7 +214,12 @@ try:
             "\"what do I have scheduled?\"), respond:\n"
             '   {\"type\": \"list_tasks\", \"reply\": \"<short friendly sentence asking the system to list tasks for him>\"}\n'
             "   (The system will actually fetch and format the tasks; you don't need to know them.)\n"
-            "3) For normal chat (questions, small talk, anything not about tasks), respond:\n"
+            "3) To MARK a task as completed / remove it (e.g. \"I already went to the gym\" or "
+            "\"mark the gym reminder done\"), respond:\n"
+            '   {\"type\": \"remove_task\", \"task\": \"<short description of the task to remove>\", '
+            '\"reply\": \"<friendly confirmation with emojis>\"}\n'
+            "   Choose the task text so it can be matched against stored tasks.\n"
+            "4) For normal chat (questions, small talk, anything not about tasks), respond:\n"
             '   {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n\n'
             "Do NOT include any thoughts, explanations, or extra keys. Only output the JSON object."
         )
@@ -254,6 +261,9 @@ try:
             reply_type = parsed.get("type")
             reply_text = (parsed.get("reply") or "").strip()
 
+            reply_type = parsed.get("type")
+            reply_text = (parsed.get("reply") or "").strip()
+
             if reply_type == "add_task":
                 task_text = (parsed.get("task") or "").strip()
                 if task_text:
@@ -264,15 +274,32 @@ try:
                     final_reply = reply_text or "Got it 👍"
 
             elif reply_type == "list_tasks":
-                # Use real TASKS to answer
                 if not TASKS:
                     final_reply = "You don't have any tasks right now! 🎉"
                 else:
                     lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
                     final_reply = "Here are your current tasks:\n" + "\n".join(lines)
 
+            elif reply_type == "remove_task":
+                # Try to find a matching task by substring
+                task_text = (parsed.get("task") or "").strip().lower()
+                if not TASKS or not task_text:
+                    final_reply = reply_text or "I couldn't find a matching task to remove 🤔"
+                else:
+                    removed = None
+                    for i, existing in enumerate(TASKS):
+                        if task_text in existing.lower() or existing.lower() in task_text:
+                            removed = TASKS.pop(i)
+                            break
+
+                    if removed:
+                        final_reply = reply_text or f"Marked as done and removed: {removed} ✅"
+                    else:
+                        final_reply = reply_text or "I couldn't find a matching task to remove 🤔"
+
             else:  # "chat" or anything else
                 final_reply = reply_text or "Got it 👍"
+
 
         except Exception as e:
             print("JSON parse error:", e, "raw:", raw)
