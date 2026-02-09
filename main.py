@@ -13,6 +13,10 @@ TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 # Replace "OPENROOUTER_API_KEY" with the token you received from the OpenRouter
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+
+# Limit User Access:
+ALLOWED_USER_ID = 5244589395
 try:
     bot = telebot.TeleBot(TOKEN)
     register_commands(bot)
@@ -21,36 +25,20 @@ try:
     def send_welcome(message):
         """
         Handle '/start' and '/hello' commands.
-
-        Args:
-            message (telebot.types.Message): The message object.
         """
-        bot.reply_to(message, "Hello! I'm a simple Telegram bot.")
+        if message.from_user.id != ALLOWED_USER_ID:
+            return  # ignore everyone except you
 
-    @bot.message_handler(func=lambda msg: True)
-        bot = telebot.TeleBot(TOKEN)
-    register_commands(bot)
+        bot.reply_to(message, "Hello! I'm your personal Telegram bot.")
 
-    @bot.message_handler(commands=['start', 'hello'])
-    def send_welcome(message):
-        """
-        Handle '/start' and '/hello' commands.
-
-        Args:
-            message (telebot.types.Message): The message object.
-        """
-        bot.reply_to(message, "Hello! I'm a simple Telegram bot.")
-
-    # === AI handler replaces echo_all ===
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         """
         Send all incoming messages to OpenRouter and reply with the AI response.
         """
-        import os
-        import requests
+        if message.from_user.id != ALLOWED_USER_ID:
+            return  # ignore everyone except you
 
-        OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
         user_text = message.text
 
         headers = {
@@ -84,17 +72,6 @@ try:
             reply = f"Sorry, something went wrong: {e}"
 
         bot.reply_to(message, reply)
-
-    # Remove webhook to avoid conflicts with polling
-    bot.delete_webhook(drop_pending_updates=True)
-    bot.polling()
-
-except Exception as e:
-    print(f"CRITICAL ERROR: Failed to initialize bot with provided token. Error: {e}")
-    print("The application will hang to prevent a restart loop. Please fix the TELEGRAM_BOT_TOKEN environment variable.")
-    while True:
-        time.sleep(3600)
-
 
     # Remove webhook to avoid conflicts with polling
     bot.delete_webhook(drop_pending_updates=True)
