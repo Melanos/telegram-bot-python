@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import telebot
 import requests
 from dotenv import load_dotenv
@@ -42,7 +43,7 @@ def get_stock_price(symbol: str) -> str:
 
     try:
         ticker = yf.Ticker(symbol)
-        info = ticker.fast_info  # lightweight quote [web:86]
+        info = ticker.fast_info
         price = info.get("last_price") or info.get("last")
         currency = info.get("currency", "USD")
         if price is None:
@@ -144,7 +145,9 @@ try:
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         """
-        Send all other messages to OpenRouter and reply with the AI response.
+        AI chat + smart task capture.
+        If Igor writes something that sounds like a task (e.g. "remind me to call mom tomorrow"),
+        the model will mark it as a task and we'll store it.
         """
         if message.from_user.id != ALLOWED_USER_ID:
             return  # ignore everyone except you
@@ -154,24 +157,27 @@ try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://im-ai.tech",  # any URL you control
+            "HTTP-Referer": "https://im-ai.tech",
             "X-Title": "Igor Telegram Bot",
         }
+
+        system_prompt = (
+            "You are Igor's personal AI assistant on Telegram. "
+            "You can also manage his to-do list.\n\n"
+            "When Igor sends a message, decide if it is a TASK he wants to remember.\n"
+            "- If it IS a task, respond in JSON ONLY like:\n"
+            '  {\"type\": \"task\", \"task\": \"<short task description>\", '
+            '\"reply\": \"<friendly confirmation with emojis>\"}\n'
+            "- If it is NOT a task, respond in JSON ONLY like:\n"
+            '  {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n'
+            "Never include any other text outside the JSON."
+        )
 
         data = {
             "model": "tngtech/deepseek-r1t-chimera:free",
             "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are Igor's personal AI assistant on Telegram. "
-                        "Be concise, friendly, and practical. Emojis are allowed."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": user_text,
-                },
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text},
             ],
         }
 
@@ -185,14 +191,34 @@ try:
             print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"]
-            reply = extract_final_answer(raw)
         except Exception as e:
             print("OpenRouter error:", e)
-            reply = "Sorry, something went wrong talking to the AI."
+            bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
+            return
 
-        bot.reply_to(message, reply)
+        try:
+            parsed = json.loads(raw)
+            reply_type = parsed.get("type")
+            reply_text = parsed.get("reply", "").strip()
 
-    # Remove webhook to avoid conflicts with polling
+            if reply_type == "task":
+                task_text = parsed.get("task", "").strip()
+                if task_text:
+                    TASKS.append(task_text)
+                    idx = len(TASKS)
+                    final_reply = f"{reply_text} (I saved this as task #{idx} ✅)"
+                else:
+                    final_reply = reply_text or "Got it 👍"
+            else:
+                final_reply = reply_text or "Got it 👍"
+
+        except Exception as e:
+            print("JSON parse error:", e, "raw:", raw)
+            final_reply = raw
+
+        bot.reply_to(message, final_reply)
+
+    # IMPORTANT: keep polling at the end
     bot.delete_webhook(drop_pending_updates=True)
     bot.polling()
 
