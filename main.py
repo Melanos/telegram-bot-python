@@ -43,12 +43,14 @@ def get_stock_price(symbol: str) -> str:
 
     try:
         ticker = yf.Ticker(symbol)
-        info = ticker.fast_info
-        price = info.get("last_price") or info.get("last")
+        info = ticker.info  # full info dict
+        price = info.get("regularMarketPrice") or info.get("currentPrice")
         currency = info.get("currency", "USD")
+
         if price is None:
             return f"Could not find a current price for {symbol}. Check the symbol and try again."
-        return f"{symbol} is trading at {price:.2f} {currency}."
+
+        return f"{symbol} is trading at {float(price):.2f} {currency}."
     except Exception as e:
         return f"Sorry, I couldn't fetch the price for {symbol}: {e}"
 
@@ -145,12 +147,11 @@ try:
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         """
-        AI chat + smart task capture.
-        If Igor writes something that sounds like a task (e.g. "remind me to call mom tomorrow"),
-        the model will mark it as a task and we'll store it.
+        AI chat + implicit tasks (using wording, not JSON).
+        For now, just respond like a normal assistant and hide the thinking.
         """
         if message.from_user.id != ALLOWED_USER_ID:
-            return  # ignore everyone except you
+            return
 
         user_text = message.text
 
@@ -161,22 +162,17 @@ try:
             "X-Title": "Igor Telegram Bot",
         }
 
-        system_prompt = (
-            "You are Igor's personal AI assistant on Telegram. "
-            "You can also manage his to-do list.\n\n"
-            "When Igor sends a message, decide if it is a TASK he wants to remember.\n"
-            "- If it IS a task, respond in JSON ONLY like:\n"
-            '  {\"type\": \"task\", \"task\": \"<short task description>\", '
-            '\"reply\": \"<friendly confirmation with emojis>\"}\n'
-            "- If it is NOT a task, respond in JSON ONLY like:\n"
-            '  {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n'
-            "Never include any other text outside the JSON."
-        )
-
         data = {
             "model": "tngtech/deepseek-r1t-chimera:free",
             "messages": [
-                {"role": "system", "content": system_prompt},
+                {
+                    "role": "system",
+                    "content": (
+                        "You are Igor's personal AI assistant on Telegram. "
+                        "Be concise, friendly, and practical. Emojis are allowed. "
+                        "Think internally, but only output your final answer."
+                    ),
+                },
                 {"role": "user", "content": user_text},
             ],
         }
@@ -191,32 +187,12 @@ try:
             print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"]
+            reply = extract_final_answer(raw)
         except Exception as e:
             print("OpenRouter error:", e)
-            bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
-            return
+            reply = "Sorry, something went wrong talking to the AI."
 
-        try:
-            parsed = json.loads(raw)
-            reply_type = parsed.get("type")
-            reply_text = parsed.get("reply", "").strip()
-
-            if reply_type == "task":
-                task_text = parsed.get("task", "").strip()
-                if task_text:
-                    TASKS.append(task_text)
-                    idx = len(TASKS)
-                    final_reply = f"{reply_text} (I saved this as task #{idx} ✅)"
-                else:
-                    final_reply = reply_text or "Got it 👍"
-            else:
-                final_reply = reply_text or "Got it 👍"
-
-        except Exception as e:
-            print("JSON parse error:", e, "raw:", raw)
-            final_reply = raw
-
-        bot.reply_to(message, final_reply)
+        bot.reply_to(message, reply)
 
     # IMPORTANT: keep polling at the end
     bot.delete_webhook(drop_pending_updates=True)
