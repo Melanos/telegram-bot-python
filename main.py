@@ -179,10 +179,39 @@ try:
     def chat_ai(message):
         """
         AI chat + smart task capture via JSON.
+        Igor talks naturally; the model decides if it's a task or normal chat.
+        Tasks are stored in TASKS without using /addtask.
         """
         if message.from_user.id != ALLOWED_USER_ID:
             return
 
+        text = message.text.strip().lower()
+
+        # 1) Handle the 📋 List tasks button directly (no LLM)
+        if text in ["📋 list tasks", "list tasks"]:
+            if not TASKS:
+                bot.reply_to(message, "Your task list is empty ✅")
+            else:
+                lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
+                reply = "Here are your current tasks:\n" + "\n".join(lines)
+                bot.reply_to(message, reply)
+            return
+
+        # 2) Natural-language “do I have tasks?” questions – also bypass LLM
+        if (
+            "do i have any tasks" in text
+            or "do i have tasks" in text
+            or "anything scheduled" in text
+        ):
+            if not TASKS:
+                bot.reply_to(message, "You don't have any tasks right now! 🎉")
+            else:
+                lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
+                reply = "Here are your current tasks:\n" + "\n".join(lines)
+                bot.reply_to(message, reply)
+            return
+
+        # For everything else, continue to LLM JSON logic
         user_text = message.text
 
         headers = {
@@ -197,8 +226,10 @@ try:
             "You can also manage his to-do list.\n\n"
             "Your response MUST be valid JSON only, with no extra text.\n"
             "Use one of these formats:\n"
-            "1) If Igor is asking to add a task or reminder (e.g. \"remind me to go to the gym at 6 PM\"), respond as:\n"
-            '   {\"type\": \"task\", \"task\": \"<short task description>\", \"reply\": \"<friendly confirmation with emojis>\"}\n'
+            "1) If Igor is asking to add a task or reminder "
+            "(e.g. \"remind me to go to the gym at 6 PM\"), respond as:\n"
+            '   {\"type\": \"task\", \"task\": \"<short task description>\", '
+            '\"reply\": \"<friendly confirmation with emojis>\"}\n'
             "2) Otherwise, respond as:\n"
             '   {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n'
             "Do not include explanations, thoughts, or any keys other than type, task, and reply."
@@ -212,21 +243,7 @@ try:
             ],
         }
 
-        try:
-            resp = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=30,
-            )
-            print("OpenRouter debug:", resp.status_code, resp.text)
-            resp.raise_for_status()
-            raw = resp.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            print("OpenRouter error:", e)
-            bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
-            return
-
+        # Single call to OpenRouter
         try:
             resp = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -249,7 +266,7 @@ try:
             if start == -1 or end == -1 or end <= start:
                 raise ValueError("No JSON object found in model output")
 
-            json_str = raw[start:end+1]
+            json_str = raw[start:end + 1]
             parsed = json.loads(json_str)
 
             reply_type = parsed.get("type")
@@ -271,7 +288,6 @@ try:
             final_reply = raw  # last resort
 
         bot.reply_to(message, final_reply)
-
 
 
     # IMPORTANT: keep polling at the end
