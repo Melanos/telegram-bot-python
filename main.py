@@ -193,6 +193,24 @@ try:
             return
 
         text_raw = message.text or ""
+        text = text_raw.strip()
+
+        # If user taps "Complete task", guide them to use /donetask or natural language
+        if text == "✅ Complete task":
+            if not TASKS:
+                bot.reply_to(message, "You don't have any tasks to complete right now ✅")
+            else:
+                lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
+                reply = (
+                    "Which task did you complete?\n"
+                    "You can either:\n"
+                    "- Say something like \"I finished: <task text>\" 🤖, or\n"
+                    "- Use /donetask <number>\n\n"
+                    "Here are your tasks:\n" + "\n".join(lines)
+                )
+                bot.reply_to(message, reply)
+            return
+
 
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
