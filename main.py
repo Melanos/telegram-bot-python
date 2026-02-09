@@ -233,7 +233,7 @@ try:
         )
 
         data = {
-            "model": "tngtech/deepseek-r1t-chimera:free",
+            "model": "meta-llama/llama-3.3-70b-instruct:free",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text_raw},
