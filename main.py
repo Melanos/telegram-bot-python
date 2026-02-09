@@ -42,9 +42,14 @@ try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://im-ai.tech",  # any URL you control
+            "X-Title": "Igor Telegram Bot",
         }
+
         data = {
-            "model": "deepseek/deepseek-r1:free",
+            "model": "deepseek-r1:free",
+            # If that ever errors, alternative to try:
+            # "model": "openrouter/deepseek/deepseek-r1-0528:free",
             "messages": [
                 {
                     "role": "system",
@@ -67,6 +72,7 @@ try:
                 json=data,
                 timeout=30,
             )
+            print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
             reply = resp.json()["choices"][0]["message"]["content"]
         except Exception as e:
