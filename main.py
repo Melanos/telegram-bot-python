@@ -147,8 +147,7 @@ try:
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         """
-        AI chat + implicit tasks (using wording, not JSON).
-        For now, just respond like a normal assistant and hide the thinking.
+        AI chat + smart task capture via JSON.
         """
         if message.from_user.id != ALLOWED_USER_ID:
             return
@@ -162,17 +161,22 @@ try:
             "X-Title": "Igor Telegram Bot",
         }
 
+        system_prompt = (
+            "You are Igor's personal AI assistant on Telegram. "
+            "You can also manage his to-do list.\n\n"
+            "Your response MUST be valid JSON only, with no extra text.\n"
+            "Use one of these formats:\n"
+            "1) If Igor is asking to add a task or reminder (e.g. \"remind me to go to the gym at 6 PM\"), respond as:\n"
+            '   {\"type\": \"task\", \"task\": \"<short task description>\", \"reply\": \"<friendly confirmation with emojis>\"}\n'
+            "2) Otherwise, respond as:\n"
+            '   {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n'
+            "Do not include explanations, thoughts, or any keys other than type, task, and reply."
+        )
+
         data = {
             "model": "tngtech/deepseek-r1t-chimera:free",
             "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are Igor's personal AI assistant on Telegram. "
-                        "Be concise, friendly, and practical. Emojis are allowed. "
-                        "Think internally, but only output your final answer."
-                    ),
-                },
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_text},
             ],
         }
@@ -187,12 +191,33 @@ try:
             print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"]
-            reply = extract_final_answer(raw)
         except Exception as e:
             print("OpenRouter error:", e)
-            reply = "Sorry, something went wrong talking to the AI."
+            bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
+            return
 
-        bot.reply_to(message, reply)
+        try:
+            parsed = json.loads(raw)
+            reply_type = parsed.get("type")
+            reply_text = parsed.get("reply", "").strip()
+
+            if reply_type == "task":
+                task_text = parsed.get("task", "").strip()
+                if task_text:
+                    TASKS.append(task_text)
+                    idx = len(TASKS)
+                    final_reply = f"{reply_text} (I saved this as task #{idx} ✅)"
+                else:
+                    final_reply = reply_text or "Got it 👍"
+            else:
+                final_reply = reply_text or "Got it 👍"
+
+        except Exception as e:
+            # If JSON parsing fails, log and just fall back to the raw string
+            print("JSON parse error:", e, "raw:", raw)
+            final_reply = raw
+
+        bot.reply_to(message, final_reply)
 
     # IMPORTANT: keep polling at the end
     bot.delete_webhook(drop_pending_updates=True)
