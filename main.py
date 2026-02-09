@@ -72,11 +72,13 @@ try:
                 json=data,
                 timeout=30,
             )
+            # This will show the *real* error body in Railway logs
             print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
             reply = resp.json()["choices"][0]["message"]["content"]
         except Exception as e:
-            reply = f"Sorry, something went wrong: {e}"
+            print("OpenRouter error:", e)
+            reply = "Sorry, something went wrong talking to the AI."
 
         bot.reply_to(message, reply)
 
