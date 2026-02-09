@@ -178,41 +178,19 @@ try:
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         """
-        AI chat + smart task capture via JSON.
-        Igor talks naturally; the model decides if it's a task or normal chat.
-        Tasks are stored in TASKS without using /addtask.
+        AI chat + task management via simple tool protocol.
+
+        The model can return:
+        - {"type": "add_task", "task": "...", "reply": "..."}
+        - {"type": "list_tasks", "reply": "..."}
+        - {"type": "chat", "reply": "..."}
+
+        Python then executes the requested "tool" on TASKS.
         """
         if message.from_user.id != ALLOWED_USER_ID:
             return
 
-        text = message.text.strip().lower()
-
-        # 1) Handle the 📋 List tasks button directly (no LLM)
-        if text in ["📋 list tasks", "list tasks"]:
-            if not TASKS:
-                bot.reply_to(message, "Your task list is empty ✅")
-            else:
-                lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
-                reply = "Here are your current tasks:\n" + "\n".join(lines)
-                bot.reply_to(message, reply)
-            return
-
-        # 2) Natural-language “do I have tasks?” questions – also bypass LLM
-        if (
-            "do i have any tasks" in text
-            or "do i have tasks" in text
-            or "anything scheduled" in text
-        ):
-            if not TASKS:
-                bot.reply_to(message, "You don't have any tasks right now! 🎉")
-            else:
-                lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
-                reply = "Here are your current tasks:\n" + "\n".join(lines)
-                bot.reply_to(message, reply)
-            return
-
-        # For everything else, continue to LLM JSON logic
-        user_text = message.text
+        text_raw = message.text or ""
 
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -222,28 +200,32 @@ try:
         }
 
         system_prompt = (
-            "You are Igor's personal AI assistant on Telegram. "
-            "You can also manage his to-do list.\n\n"
-            "Your response MUST be valid JSON only, with no extra text.\n"
-            "Use one of these formats:\n"
-            "1) If Igor is asking to add a task or reminder "
-            "(e.g. \"remind me to go to the gym at 6 PM\"), respond as:\n"
-            '   {\"type\": \"task\", \"task\": \"<short task description>\", '
+            "You are Igor's personal AI assistant on Telegram.\n"
+            "You can also manage his to-do list. The tasks themselves are stored "
+            "outside of you; you must use JSON types to tell the system what to do.\n\n"
+            "You MUST respond with a single valid JSON object and nothing else.\n"
+            "Allowed formats:\n"
+            "1) To ADD a new task or reminder (e.g. \"remind me to go to the gym at 6 PM\"), respond:\n"
+            '   {\"type\": \"add_task\", \"task\": \"<short task description>\", '
             '\"reply\": \"<friendly confirmation with emojis>\"}\n'
-            "2) Otherwise, respond as:\n"
-            '   {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n'
-            "Do not include explanations, thoughts, or any keys other than type, task, and reply."
+            "2) To LIST Igor's existing tasks (e.g. if he asks \"do I have any tasks?\" or "
+            "\"what do I have scheduled?\"), respond:\n"
+            '   {\"type\": \"list_tasks\", \"reply\": \"<short friendly sentence asking the system to list tasks for him>\"}\n'
+            "   (The system will actually fetch and format the tasks; you don't need to know them.)\n"
+            "3) For normal chat (questions, small talk, anything not about tasks), respond:\n"
+            '   {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n\n'
+            "Do NOT include any thoughts, explanations, or extra keys. Only output the JSON object."
         )
 
         data = {
             "model": "tngtech/deepseek-r1t-chimera:free",
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_text},
+                {"role": "user", "content": text_raw},
             ],
         }
 
-        # Single call to OpenRouter
+        # Call OpenRouter once
         try:
             resp = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -259,7 +241,7 @@ try:
             bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
             return
 
-        # Keep only the JSON part from the model output
+        # Extract JSON only (strip any accidental reasoning)
         try:
             start = raw.find("{")
             end = raw.rfind("}")
@@ -270,22 +252,31 @@ try:
             parsed = json.loads(json_str)
 
             reply_type = parsed.get("type")
-            reply_text = parsed.get("reply", "").strip()
+            reply_text = (parsed.get("reply") or "").strip()
 
-            if reply_type == "task":
-                task_text = parsed.get("task", "").strip()
+            if reply_type == "add_task":
+                task_text = (parsed.get("task") or "").strip()
                 if task_text:
                     TASKS.append(task_text)
                     idx = len(TASKS)
-                    final_reply = f"{reply_text} (I saved this as task #{idx} ✅)"
+                    final_reply = reply_text or f"Got it, I saved: {task_text} (task #{idx} ✅)"
                 else:
                     final_reply = reply_text or "Got it 👍"
-            else:
+
+            elif reply_type == "list_tasks":
+                # Use real TASKS to answer
+                if not TASKS:
+                    final_reply = "You don't have any tasks right now! 🎉"
+                else:
+                    lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
+                    final_reply = "Here are your current tasks:\n" + "\n".join(lines)
+
+            else:  # "chat" or anything else
                 final_reply = reply_text or "Got it 👍"
 
         except Exception as e:
             print("JSON parse error:", e, "raw:", raw)
-            final_reply = raw  # last resort
+            final_reply = raw  # last resort: show what the model said
 
         bot.reply_to(message, final_reply)
 
