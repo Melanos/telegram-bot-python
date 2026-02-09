@@ -47,7 +47,7 @@ try:
         }
 
         data = {
-            "model": "deepseek-r1:free",
+            "model": "tngtech/deepseek-r1t-chimera:free",
             # If that ever errors, alternative to try:
             # "model": "openrouter/deepseek/deepseek-r1-0528:free",
             "messages": [
