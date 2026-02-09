@@ -4,6 +4,7 @@ import telebot
 import requests
 from dotenv import load_dotenv
 from commands import register_commands
+import yfinance as yf  # NEW
 
 # Load environment variables
 load_dotenv()
@@ -14,6 +15,42 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Limit User Access
 ALLOWED_USER_ID = 5244589395
+
+# In-memory task list (per bot run)
+TASKS = []  # simple list of strings
+
+
+def extract_final_answer(text: str) -> str:
+    """
+    Take the last non-empty paragraph from the model output.
+    This hides the reasoning and keeps only the final reply.
+    """
+    parts = [p.strip() for p in text.split("\n\n") if p.strip()]
+    if not parts:
+        return text.strip()
+    return parts[-1]
+
+
+def get_stock_price(symbol: str) -> str:
+    """
+    Fetch current stock price using yfinance.
+    Returns a user-friendly string.
+    """
+    symbol = symbol.upper().strip()
+    if not symbol:
+        return "Please provide a stock symbol, e.g. /stock AAPL."
+
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.fast_info  # lightweight quote [web:86]
+        price = info.get("last_price") or info.get("last")
+        currency = info.get("currency", "USD")
+        if price is None:
+            return f"Could not find a current price for {symbol}. Check the symbol and try again."
+        return f"{symbol} is trading at {price:.2f} {currency}."
+    except Exception as e:
+        return f"Sorry, I couldn't fetch the price for {symbol}: {e}"
+
 
 try:
     bot = telebot.TeleBot(TOKEN)
@@ -27,12 +64,87 @@ try:
         if message.from_user.id != ALLOWED_USER_ID:
             return  # ignore everyone except you
 
-        bot.reply_to(message, "Hello! I'm your personal Telegram bot.")
+        bot.reply_to(message, "Hello! I'm your personal Telegram bot 🤖")
+
+    @bot.message_handler(commands=['stock'])
+    def handle_stock(message):
+        """
+        Usage: /stock AAPL
+        """
+        if message.from_user.id != ALLOWED_USER_ID:
+            return
+
+        parts = message.text.split()
+        if len(parts) < 2:
+            bot.reply_to(message, "Usage: /stock SYMBOL, e.g. /stock AAPL")
+            return
+
+        symbol = parts[1]
+        reply = get_stock_price(symbol)
+        bot.reply_to(message, reply)
+
+    @bot.message_handler(commands=['addtask'])
+    def handle_add_task(message):
+        """
+        Usage: /addtask Buy groceries
+        """
+        if message.from_user.id != ALLOWED_USER_ID:
+            return
+
+        text = message.text[len("/addtask"):].strip()
+        if not text:
+            bot.reply_to(message, "Usage: /addtask <task description>")
+            return
+
+        TASKS.append(text)
+        bot.reply_to(message, f"Added task #{len(TASKS)}: {text}")
+
+    @bot.message_handler(commands=['listtasks'])
+    def handle_list_tasks(message):
+        """
+        List all tasks.
+        """
+        if message.from_user.id != ALLOWED_USER_ID:
+            return
+
+        if not TASKS:
+            bot.reply_to(message, "Your task list is empty ✅")
+            return
+
+        lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
+        reply = "Here are your current tasks:\n" + "\n".join(lines)
+        bot.reply_to(message, reply)
+
+    @bot.message_handler(commands=['donetask'])
+    def handle_done_task(message):
+        """
+        Usage: /donetask 1
+        """
+        if message.from_user.id != ALLOWED_USER_ID:
+            return
+
+        parts = message.text.split()
+        if len(parts) < 2:
+            bot.reply_to(message, "Usage: /donetask <task_number>, e.g. /donetask 1")
+            return
+
+        try:
+            idx = int(parts[1]) - 1
+        except ValueError:
+            bot.reply_to(message, "Task number must be a valid integer.")
+            return
+
+        if idx < 0 or idx >= len(TASKS):
+            bot.reply_to(message, "That task number does not exist.")
+            return
+
+        done = TASKS.pop(idx)
+        bot.reply_to(message, f"Marked as done: {done} ✅")
 
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         """
-        Send all incoming messages to OpenRouter and reply with the AI response.
+        Send all other messages to OpenRouter and reply with the AI response.
         """
         if message.from_user.id != ALLOWED_USER_ID:
             return  # ignore everyone except you
@@ -48,14 +160,12 @@ try:
 
         data = {
             "model": "tngtech/deepseek-r1t-chimera:free",
-            # If that ever errors, alternative to try:
-            # "model": "openrouter/deepseek/deepseek-r1-0528:free",
             "messages": [
                 {
                     "role": "system",
                     "content": (
                         "You are Igor's personal AI assistant on Telegram. "
-                        "Be concise, friendly, and practical."
+                        "Be concise, friendly, and practical. Emojis are allowed."
                     ),
                 },
                 {
@@ -72,10 +182,10 @@ try:
                 json=data,
                 timeout=30,
             )
-            # This will show the *real* error body in Railway logs
             print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
-            reply = resp.json()["choices"][0]["message"]["content"]
+            raw = resp.json()["choices"][0]["message"]["content"]
+            reply = extract_final_answer(raw)
         except Exception as e:
             print("OpenRouter error:", e)
             reply = "Sorry, something went wrong talking to the AI."
