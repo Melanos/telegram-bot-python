@@ -181,13 +181,6 @@ try:
     def chat_ai(message):
         """
         AI chat + task management via simple tool protocol.
-
-        The model can return:
-        - {"type": "add_task", "task": "...", "reply": "..."}
-        - {"type": "list_tasks", "reply": "..."}
-        - {"type": "chat", "reply": "..."}
-
-        Python then executes the requested "tool" on TASKS.
         """
         if message.from_user.id != ALLOWED_USER_ID:
             return
@@ -211,7 +204,6 @@ try:
                 bot.reply_to(message, reply)
             return
 
-
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
@@ -230,13 +222,11 @@ try:
             '\"reply\": \"<friendly confirmation with emojis>\"}\n'
             "2) To LIST Igor's existing tasks (e.g. if he asks \"do I have any tasks?\" or "
             "\"what do I have scheduled?\"), respond:\n"
-            '   {\"type\": \"list_tasks\", \"reply\": \"<short friendly sentence asking the system to list tasks for him>\"}\n'
+            '   {\"type\": \"list_tasks\", \"reply\": \"<short friendly sentence>\"}\n'
             "   (The system will actually fetch and format the tasks; you don't need to know them.)\n"
-            "3) To MARK a task as completed / remove it (e.g. \"I already went to the gym\" or "
-            "\"mark the gym reminder done\"), respond:\n"
+            "3) To MARK a task as completed / remove it (e.g. \"I already went to the gym\"), respond:\n"
             '   {\"type\": \"remove_task\", \"task\": \"<short description of the task to remove>\", '
             '\"reply\": \"<friendly confirmation with emojis>\"}\n'
-            "   Choose the task text so it can be matched against stored tasks.\n"
             "4) For normal chat (questions, small talk, anything not about tasks), respond:\n"
             '   {\"type\": \"chat\", \"reply\": \"<normal friendly answer with emojis>\"}\n\n'
             "Do NOT include any thoughts, explanations, or extra keys. Only output the JSON object."
@@ -262,8 +252,9 @@ try:
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"]
         except Exception as e:
-            print("OpenRouter error:", e)
-            bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
+            # TEMP: show detailed error in Telegram
+            error_msg = f"🔴 LLM HTTP error:\n{type(e).__name__}: {str(e)}"
+            bot.reply_to(message, error_msg)
             return
 
         # Extract JSON only (strip any accidental reasoning)
@@ -296,7 +287,6 @@ try:
                     final_reply = "Here are your current tasks:\n" + "\n".join(lines)
 
             elif reply_type == "remove_task":
-                # Try to find a matching task by substring
                 task_text = (parsed.get("task") or "").strip().lower()
                 if not TASKS or not task_text:
                     final_reply = reply_text or "I couldn't find a matching task to remove 🤔"
@@ -315,10 +305,9 @@ try:
             else:  # "chat" or anything else
                 final_reply = reply_text or "Got it 👍"
 
-
         except Exception as e:
-            print("JSON parse error:", e, "raw:", raw)
-            final_reply = raw  # last resort: show what the model said
+            # TEMP: show parse error + raw output in Telegram
+            final_reply = f"🔴 JSON parse error:\n{type(e).__name__}: {str(e)}\n\nRAW (first 500 chars):\n{raw[:500]}"
 
         bot.reply_to(message, final_reply)
 
