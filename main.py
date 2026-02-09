@@ -242,16 +242,16 @@ try:
             bot.reply_to(message, "Sorry, something went wrong talking to the AI.")
             return
 
-        # NEW: sanitize to extract JSON only
+        # Keep only the JSON part from the model output
         try:
-            # Keep only from first '{' to last '}' so we ignore any reasoning text
             start = raw.find("{")
             end = raw.rfind("}")
             if start == -1 or end == -1 or end <= start:
                 raise ValueError("No JSON object found in model output")
-            json_str = raw[start:end+1]
 
+            json_str = raw[start:end+1]
             parsed = json.loads(json_str)
+
             reply_type = parsed.get("type")
             reply_text = parsed.get("reply", "").strip()
 
@@ -267,11 +267,11 @@ try:
                 final_reply = reply_text or "Got it 👍"
 
         except Exception as e:
-            # If JSON parsing fails, log and just fall back to raw string
             print("JSON parse error:", e, "raw:", raw)
-            final_reply = raw
+            final_reply = raw  # last resort
 
         bot.reply_to(message, final_reply)
+
 
 
     # IMPORTANT: keep polling at the end
