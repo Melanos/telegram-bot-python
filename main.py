@@ -8,15 +8,13 @@ from commands import register_commands
 # Load environment variables
 load_dotenv()
 
-# Replace 'TELEGRAM_BOT_TOKEN' with the token you received from BotFather
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-
-# Replace "OPENROOUTER_API_KEY" with the token you received from the OpenRouter
+# Tokens from env
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-
-# Limit User Access:
+# Limit User Access
 ALLOWED_USER_ID = 5244589395
+
 try:
     bot = telebot.TeleBot(TOKEN)
     register_commands(bot)
@@ -50,7 +48,10 @@ try:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are Igor's personal AI assistant on Telegram. Be concise, friendly, and practical.",
+                    "content": (
+                        "You are Igor's personal AI assistant on Telegram. "
+                        "Be concise, friendly, and practical."
+                    ),
                 },
                 {
                     "role": "user",
