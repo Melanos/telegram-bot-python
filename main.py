@@ -279,9 +279,6 @@ try:
             reply_type = parsed.get("type")
             reply_text = (parsed.get("reply") or "").strip()
 
-            reply_type = parsed.get("type")
-            reply_text = (parsed.get("reply") or "").strip()
-
             if reply_type == "add_task":
                 task_text = (parsed.get("task") or "").strip()
                 if task_text:
