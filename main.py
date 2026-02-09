@@ -1,5 +1,6 @@
 import os
 import time
+from telebot import types
 import json
 import telebot
 import requests
@@ -143,6 +144,36 @@ try:
 
         done = TASKS.pop(idx)
         bot.reply_to(message, f"Marked as done: {done} ✅")
+
+    ## Adding explicit commands
+    @bot.message_handler(commands=['tasks'])
+    def cmd_tasks(message):
+        if message.from_user.id != ALLOWED_USER_ID:
+            return
+        if not TASKS:
+            bot.reply_to(message, "Your task list is empty ✅")
+            return
+        lines = [f"{idx+1}. {task}" for idx, task in enumerate(TASKS)]
+        bot.reply_to(message, "Here are your current tasks:\n" + "\n".join(lines))
+
+    @bot.message_handler(commands=['menu'])
+    def cmd_menu(message):
+        if message.from_user.id != ALLOWED_USER_ID:
+            return
+
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn_tasks = types.KeyboardButton("📋 List tasks")
+        btn_add_task = types.KeyboardButton("➕ Add task")
+        btn_stock = types.KeyboardButton("📈 Check stock price")
+        keyboard.add(btn_tasks, btn_add_task)
+        keyboard.add(btn_stock)
+
+        bot.reply_to(
+            message,
+            "Here’s your menu:",
+            reply_markup=keyboard,
+        )
+
 
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
