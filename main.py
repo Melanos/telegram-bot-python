@@ -204,11 +204,11 @@ try:
                 bot.reply_to(message, reply)
             return
 
+        # NEW: Direct Anthropic API
         headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://im-ai.tech",
-            "X-Title": "Igor Telegram Bot",
+            "x-api-key": os.getenv("ANTHROPIC_API_KEY"),
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
         }
 
         system_prompt = (
@@ -233,27 +233,26 @@ try:
         )
 
         data = {
-            "model": "meta-llama/llama-3.3-70b-instruct:free",
+            "model": "claude-3-5-haiku-20241022",
+            "max_tokens": 2048,
+            "system": system_prompt,  # ← system is separate
             "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text_raw},
-            ],
+                {"role": "user", "content": text_raw}
+            ]
         }
 
         # Call OpenRouter once
         try:
             resp = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                "https://api.anthropic.com/v1/messages",
                 headers=headers,
                 json=data,
                 timeout=30,
             )
-            print("OpenRouter debug:", resp.status_code, resp.text)
             resp.raise_for_status()
-            raw = resp.json()["choices"][0]["message"]["content"]
+            raw = resp.json()["content"][0]["text"]  # ← different response format
         except Exception as e:
-            # TEMP: show detailed error in Telegram
-            error_msg = f"🔴 LLM HTTP error:\n{type(e).__name__}: {str(e)}"
+            error_msg = f"🔴 Claude API error:\n{type(e).__name__}: {str(e)}"
             bot.reply_to(message, error_msg)
             return
 
