@@ -187,6 +187,10 @@ try:
     bot = telebot.TeleBot(TOKEN)
     register_commands(bot)
     
+    print("🚀 Bot starting...")
+    me = bot.get_me()
+    print(f"✅ Connected as @{me.username}")
+    
     # Start the reminder scheduler
     scheduler.add_job(check_reminders, 'interval', minutes=1)
     scheduler.start()
@@ -548,8 +552,14 @@ try:
         bot.reply_to(message, final_reply)
 
     # IMPORTANT: keep polling at the end
+    try:
+        bot.remove_webhook()
+        time.sleep(1)  # Wait for Telegram to process
+    except:
+        pass
+
     bot.delete_webhook(drop_pending_updates=True)
-    bot.polling()
+    bot.polling(none_stop=True, timeout=60)
 
 except Exception as e:
     print(f"CRITICAL ERROR: Failed to initialize bot with provided token. Error: {e}")
