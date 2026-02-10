@@ -413,17 +413,29 @@ try:
         if text == "✅ Complete task":
             if not TASKS:
                 bot.reply_to(message, "You don't have any tasks to complete right now ✅")
-            else:
-                # Create inline buttons for each task
-                markup = InlineKeyboardMarkup()
-                for idx, task_obj in enumerate(TASKS):
-                    btn = InlineKeyboardButton(
-                        f"✅ {task_obj['task']}", 
-                        callback_data=f"done_{idx}"
-                    )
-                    markup.add(btn)
-                bot.reply_to(message, "Tap to complete:", reply_markup=markup)
-            return
+            elif reply_type == "list_tasks":
+                if not TASKS:
+                    final_reply = "You don't have any tasks right now! 🎉"
+                    bot.reply_to(message, final_reply)
+                else:
+                    # Create inline buttons instead of text list
+                    markup = InlineKeyboardMarkup()
+                    for idx, task_obj in enumerate(TASKS):
+                        task_text = task_obj["task"]
+                        due_time = task_obj.get("due")
+                        
+                        if due_time:
+                            formatted = due_time.strftime("%b %d %I:%M %p")
+                            button_text = f"✅ {task_text} - {formatted}"
+                        else:
+                            button_text = f"✅ {task_text}"
+                        
+                        btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
+                        markup.add(btn)
+                    
+                    bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+                return  # Important: return here to skip the final bot.reply_to at the bottom
+
 
 
         headers = {
@@ -433,8 +445,9 @@ try:
         }
 
         system_prompt = (
-            "You're Igor's Telegram task assistant. Respond ONLY with valid JSON.\n\n"
-            "If user asks for multiple tasks, combine into ONE task or ask them to add separately.\n\n"
+            "You're Igor's Telegram task assistant. Return ONE JSON object.\n\n"
+            "CRITICAL: Never return multiple JSON objects or arrays. Always ONE object only.\n"
+            "If user wants multiple tasks, politely ask them to add one at a time.\n\n"
             "Types:\n"
             '• add_task: {"type":"add_task","task":"description","reply":"confirmation with emoji"}\n'
             '• list_tasks: {"type":"list_tasks","reply":"friendly sentence"}\n'
@@ -558,7 +571,8 @@ try:
         except Exception as e:
             final_reply = f"🔴 JSON parse error:\n{type(e).__name__}: {str(e)}\n\nRAW (first 500 chars):\n{raw[:500]}"
 
-        bot.reply_to(message, final_reply)
+        if reply_type != "list_tasks":
+            bot.reply_to(message, final_reply)
 
     # IMPORTANT: keep polling at the end
     try:
