@@ -133,8 +133,10 @@ def parse_datetime_from_text(text: str):
     now = datetime.now()
     text_lower = text.lower().strip()
     
-    # ========== NEW: Handle relative time FIRST ==========
-    # "in X minutes/hours"
+    print(f"🔍 parse_datetime INPUT: '{text}'")  # ← Add this
+    print(f"🔍 Current time: {now}")  # ← Add this
+    
+    # ========== Handle relative time FIRST ==========
     relative_pattern = r'\bin\s+(\d+)\s+(minute|minutes|hour|hours|min|mins|hr|hrs)\b'
     match = re.search(relative_pattern, text_lower)
     if match:
@@ -146,21 +148,22 @@ def parse_datetime_from_text(text: str):
         else:  # hour/hours/hr/hrs
             due_time = now + timedelta(hours=amount)
         
-        # Remove the "in X minutes/hours" part from text
         cleaned = re.sub(relative_pattern, '', text, flags=re.IGNORECASE).strip()
+        print(f"✅ RELATIVE match: amount={amount}, unit={unit}, due_time={due_time}")  # ← Add this
         return cleaned, due_time
     
+    # If no relative match, try dateutil
+    print(f"⚠️ No relative match, trying dateutil parser...")  # ← Add this
+    
     try:
-        # Common patterns: "tomorrow at 6pm", "Friday 3pm", "Feb 12 at 2pm"
         dt = date_parser.parse(text, fuzzy=True)
+        print(f"📅 dateutil parsed: {dt}")  # ← Add this
         
-        # If parsed date is in the past, assume user means future
         if dt < datetime.now():
-            # If only time specified, assume tomorrow
             if dt.date() == datetime.now().date():
                 dt = dt + timedelta(days=1)
+                print(f"⏭️ Adjusted to tomorrow: {dt}")  # ← Add this
         
-        # Clean the task text by removing date/time patterns
         cleaned = re.sub(r'\b(at|on|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', '', text, flags=re.IGNORECASE)
         cleaned = re.sub(r'\d{1,2}:\d{2}\s*(am|pm)?', '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'\d{1,2}\s*(am|pm)', '', cleaned, flags=re.IGNORECASE)
@@ -168,6 +171,7 @@ def parse_datetime_from_text(text: str):
         
         return cleaned, dt
     except:
+        print(f"❌ dateutil failed to parse")  # ← Add this
         return text, None
 
 
