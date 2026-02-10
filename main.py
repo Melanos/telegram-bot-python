@@ -26,6 +26,9 @@ TASKS_FILE = "/app/data/tasks.json"
 def load_tasks():
     """Load tasks from disk"""
     try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(TASKS_FILE), exist_ok=True)  # ← Add this line
+        
         if os.path.exists(TASKS_FILE):
             with open(TASKS_FILE, 'r') as f:
                 data = json.load(f)
@@ -33,14 +36,21 @@ def load_tasks():
                 for task in data:
                     if task.get('due'):
                         task['due'] = datetime.fromisoformat(task['due'])
+                print(f"✅ Loaded {len(data)} tasks from {TASKS_FILE}")  # ← Add debug
                 return data
+        else:
+            print(f"ℹ️ No tasks file found at {TASKS_FILE}")  # ← Add debug
     except Exception as e:
-        print(f"Error loading tasks: {e}")
+        print(f"❌ Error loading tasks: {e}")  # ← Add debug
     return []
+
 
 def save_tasks():
     """Save tasks to disk"""
     try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(TASKS_FILE), exist_ok=True)  # ← Add this line
+        
         # Convert datetime objects to ISO strings for JSON
         data = []
         for task in TASKS:
@@ -51,8 +61,10 @@ def save_tasks():
         
         with open(TASKS_FILE, 'w') as f:
             json.dump(data, f, indent=2)
+        print(f"✅ Saved {len(data)} tasks to {TASKS_FILE}")  # ← Add debug log
     except Exception as e:
-        print(f"Error saving tasks: {e}")
+        print(f"❌ Error saving tasks: {e}")  # ← Add debug log
+
 
 TASKS = load_tasks()
 
