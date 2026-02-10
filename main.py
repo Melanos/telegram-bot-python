@@ -105,17 +105,14 @@ def parse_reminder_time(text: str):
     """
     Extract custom reminder time from text.
     Returns (cleaned_text, reminder_minutes)
-    Examples:
-    - "remind me 30 minutes before" → 30
-    - "remind me 2 hours before" → 120
-    - "remind me 1 day before" → 1440
-    Default: 60 minutes (1 hour)
     """
     text_lower = text.lower()
     
-    # Pattern: "X minutes/hours/days before"
+    # Pattern: "X minutes/hours/days before" (and variations)
     patterns = [
-        (r'(\d+)\s*minutes?\s*before', 1),
+        (r'(\d+)\s*minutes?\s*before.*?(?:it|meeting|task|appointment)', 1),  # "5 minutes before it happens"
+        (r'(\d+)\s*minutes?\s*before', 1),  # "5 minutes before"
+        (r'(\d+)\s*minutes?\s*prior', 1),   # "5 minutes prior"
         (r'(\d+)\s*hours?\s*before', 60),
         (r'(\d+)\s*days?\s*before', 1440),
     ]
@@ -125,11 +122,13 @@ def parse_reminder_time(text: str):
         if match:
             value = int(match.group(1))
             reminder_minutes = value * multiplier
-            # Remove the reminder instruction from text
+            # Remove the entire reminder instruction
             cleaned = re.sub(pattern, '', text, flags=re.IGNORECASE).strip()
+            # Clean up extra words
+            cleaned = re.sub(r'\s*(it happens|the meeting|the task)\s*', '', cleaned, flags=re.IGNORECASE).strip()
             return cleaned, reminder_minutes
     
-    # Default: 60 minutes
+    # Default: smart reminder based on duration
     return text, 60
 
 # Adding optimal reminder timer
