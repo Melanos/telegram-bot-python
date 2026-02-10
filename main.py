@@ -16,7 +16,7 @@ import json
 import signal
 import sys
 from pathlib import Path
-
+# Test persistence - Feb 9
 # Load environment variables
 load_dotenv()
 
