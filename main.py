@@ -174,7 +174,6 @@ def parse_datetime_from_text(text: str):
         print(f"❌ dateutil failed to parse")  # ← Add this
         return text, None
 
-
 def check_reminders():
     """
     Background task that runs every minute to check for upcoming tasks.
@@ -255,14 +254,23 @@ try:
     def send_welcome(message):
         if message.from_user.id != ALLOWED_USER_ID:
             return
+        
+        # Create the menu keyboard
+        keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        btn_tasks = types.KeyboardButton("📋 List tasks")
+        btn_complete = types.KeyboardButton("✅ Complete task")
+        keyboard.add(btn_tasks, btn_complete)
+        
         bot.reply_to(message, 
             "Hello! I'm your personal Telegram bot 🤖\n\n"
             "I can handle reminders with custom times!\n\n"
             "Examples:\n"
             "• 'Remind me to go to gym tomorrow at 6pm'\n"
             "• 'Remind me 30 minutes before gym tomorrow at 6pm'\n"
-            "• 'Remind me 2 hours before the meeting Friday 3pm'"
+            "• 'Remind me 2 hours before the meeting Friday 3pm'",
+            reply_markup=keyboard  
         )
+
 
     @bot.message_handler(commands=['stock'])
     def handle_stock(message):
