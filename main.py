@@ -237,11 +237,11 @@ def check_reminders():
         reminder_minutes = task_obj.get("reminder_minutes", 60)
         reminder_time = due_time - timedelta(minutes=reminder_minutes)
         
-        time_diff = abs((now - reminder_time).total_seconds())
+        time_diff_seconds = (now - reminder_time).total_seconds()
         
         print(f"  Task: {task_obj['task']}, due: {due_time}, reminder: {reminder_time}, diff: {time_diff}s")  # ← Add debug
         
-        if time_diff <= 60:
+        if 0 <= time_diff_seconds <= 120:
             # Within 1 minute window
             task_text = task_obj["task"]
             formatted_time = due_time.strftime("%I:%M %p")
