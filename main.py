@@ -196,12 +196,20 @@ def parse_datetime_from_text(text: str):
     
     try:
         dt = date_parser.parse(text, fuzzy=True)
-        print(f"📅 dateutil parsed: {dt}")  # ← Add this
+        print(f"📅 dateutil parsed: {dt}")
         
-        if dt < datetime.now():
-            if dt.date() == datetime.now().date():
+        # Make timezone-aware if naive
+        if dt.tzinfo is None:
+            dt = EST.localize(dt)
+            print(f"🌍 Localized to EST: {dt}")
+        
+        # Compare with timezone-aware now
+        now_aware = datetime.now(EST)
+        if dt < now_aware:
+            if dt.date() == now_aware.date():
                 dt = dt + timedelta(days=1)
-                print(f"⏭️ Adjusted to tomorrow: {dt}")  # ← Add this
+                print(f"⏭️ Adjusted to tomorrow: {dt}")
+
         
         cleaned = re.sub(r'\b(at|on|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', '', text, flags=re.IGNORECASE)
         cleaned = re.sub(r'\d{1,2}:\d{2}\s*(am|pm)?', '', cleaned, flags=re.IGNORECASE)
