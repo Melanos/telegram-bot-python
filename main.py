@@ -132,6 +132,33 @@ def parse_reminder_time(text: str):
     # Default: 60 minutes
     return text, 60
 
+# Adding optimal reminder timer
+def calculate_smart_reminder(due_time):
+    """
+    Automatically calculate optimal reminder time based on task duration.
+    Returns minutes before due time to send reminder.
+    """
+    if not due_time:
+        return 60  # Default for tasks without due time
+    
+    now = datetime.now(EST)
+    minutes_until_due = (due_time - now).total_seconds() / 60
+    
+    if minutes_until_due < 5:
+        # Very short tasks: remind halfway through
+        return max(1, int(minutes_until_due * 0.5))
+    elif minutes_until_due < 15:
+        # Short tasks: 2 minutes before
+        return 2
+    elif minutes_until_due < 60:
+        # Medium tasks: 5 minutes before
+        return 5
+    elif minutes_until_due < 180:  # < 3 hours
+        # Longer tasks: 15 minutes before
+        return 15
+    else:
+        # Long tasks: 1 hour before
+        return 60
 
 def parse_datetime_from_text(text: str):
     """
@@ -311,11 +338,18 @@ try:
             return
 
         # Parse reminder time first
-        text, reminder_minutes = parse_reminder_time(text)
-        
+        text, user_reminder = parse_reminder_time(text)
+
         # Then parse datetime
         cleaned_text, due_time = parse_datetime_from_text(text)
-        
+
+        # Smart reminder: use user's choice OR auto-calculate
+        if user_reminder == 60 and due_time:
+            reminder_minutes = calculate_smart_reminder(due_time)
+            print(f"🧠 Smart reminder: {reminder_minutes} min before")
+        else:
+            reminder_minutes = user_reminder
+
         TASKS.append({
             "task": cleaned_text or text,
             "due": due_time,
@@ -640,10 +674,17 @@ try:
                     task_text = (item.get("task") or "").strip()
                     if task_text:
                         # Parse reminder time first
-                        task_text, reminder_minutes = parse_reminder_time(task_text)
+                        task_text, user_reminder = parse_reminder_time(task_text)
                         
                         # Parse date/time from the task
                         cleaned_text, due_time = parse_datetime_from_text(task_text)
+                        
+                        # Smart reminder: use user's choice OR auto-calculate
+                        if user_reminder == 60 and due_time:  # 60 = default, user didn't specify
+                            reminder_minutes = calculate_smart_reminder(due_time)
+                            print(f"🧠 Smart reminder: {reminder_minutes} min before")
+                        else:
+                            reminder_minutes = user_reminder  # User specified, respect their choice
                         
                         TASKS.append({
                             "task": cleaned_text or task_text,
