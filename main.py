@@ -413,28 +413,17 @@ try:
         if text == "✅ Complete task":
             if not TASKS:
                 bot.reply_to(message, "You don't have any tasks to complete right now ✅")
-            elif reply_type == "list_tasks":
-                if not TASKS:
-                    final_reply = "You don't have any tasks right now! 🎉"
-                    bot.reply_to(message, final_reply)
-                else:
-                    # Create inline buttons instead of text list
-                    markup = InlineKeyboardMarkup()
-                    for idx, task_obj in enumerate(TASKS):
-                        task_text = task_obj["task"]
-                        due_time = task_obj.get("due")
-                        
-                        if due_time:
-                            formatted = due_time.strftime("%b %d %I:%M %p")
-                            button_text = f"✅ {task_text} - {formatted}"
-                        else:
-                            button_text = f"✅ {task_text}"
-                        
-                        btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
-                        markup.add(btn)
-                    
-                    bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
-                return  # Important: return here to skip the final bot.reply_to at the bottom
+            else:
+            # Create inline buttons for each task
+                markup = InlineKeyboardMarkup()
+                for idx, task_obj in enumerate(TASKS):
+                    btn = InlineKeyboardButton(
+                        f"✅ {task_obj['task']}", 
+                        callback_data=f"done_{idx}"
+                    )
+                    markup.add(btn)
+                bot.reply_to(message, "Tap to complete:", reply_markup=markup)
+            return  # ← Important: return here
 
 
 
@@ -445,20 +434,21 @@ try:
         }
 
         system_prompt = (
-            "You're Igor's Telegram task assistant. Return ONE JSON object.\n\n"
-            "CRITICAL: Never return multiple JSON objects or arrays. Always ONE object only.\n"
-            "If user wants multiple tasks, politely ask them to add one at a time.\n\n"
+            "You're Igor's Telegram task assistant. Return valid JSON.\n\n"
+            "For SINGLE task: Return one object\n"
+            "For MULTIPLE tasks: Return array of objects\n\n"
             "Types:\n"
-            '• add_task: {"type":"add_task","task":"description","reply":"confirmation with emoji"}\n'
-            '• list_tasks: {"type":"list_tasks","reply":"friendly sentence"}\n'
-            '• remove_task: {"type":"remove_task","task":"description to remove","reply":"confirmation"}\n'
-            '• chat: {"type":"chat","reply":"normal answer with emoji"}\n\n'
+            '• add_task: {"type":"add_task","task":"description","reply":"confirmation"}\n'
+            '• list_tasks: {"type":"list_tasks","reply":"sentence"}\n'
+            '• remove_task: {"type":"remove_task","task":"description","reply":"confirmation"}\n'
+            '• chat: {"type":"chat","reply":"answer"}\n\n'
             "Examples:\n"
-            '"remind me 30 minutes before gym tomorrow 6pm" → add_task (keep FULL text with time)\n'
-            '"I finished gym" → remove_task\n'
-            '"what tasks?" → list_tasks\n'
-            "No extra text, only JSON."
+            '"remind me gym tomorrow 6pm" → single add_task object\n'
+            '"remind me to X and Y" → array of 2 add_task objects\n'
+            '"I finished gym" → single remove_task object\n'
+            "Return JSON only, no extra text."
         )
+
 
         data = {
             "model": "claude-haiku-4-5-20251001",
@@ -535,18 +525,25 @@ try:
             elif reply_type == "list_tasks":
                 if not TASKS:
                     final_reply = "You don't have any tasks right now! 🎉"
+                    bot.reply_to(message, final_reply)
                 else:
-                    lines = []
+                    markup = InlineKeyboardMarkup()
                     for idx, task_obj in enumerate(TASKS):
                         task_text = task_obj["task"]
                         due_time = task_obj.get("due")
+                        
                         if due_time:
-                            formatted = due_time.strftime("%b %d at %I:%M %p")
-                            lines.append(f"{idx+1}. {task_text} 📅 {formatted}")
+                            formatted = due_time.strftime("%b %d %I:%M %p")
+                            button_text = f"✅ {task_text} - {formatted}"
                         else:
-                            lines.append(f"{idx+1}. {task_text}")
-                    final_reply = "Here are your current tasks:\n" + "\n".join(lines)
-
+                            button_text = f"✅ {task_text}"
+                        
+                        btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
+                        markup.add(btn)
+                    
+                    bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+                return  # Return here to skip final reply
+            
             elif reply_type == "remove_task":
                 task_text = (parsed.get("task") or "").strip().lower()
                 if not TASKS or not task_text:
