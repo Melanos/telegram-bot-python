@@ -423,6 +423,7 @@ try:
 
         system_prompt = (
             "You're Igor's Telegram task assistant. Respond ONLY with valid JSON.\n\n"
+            "If user asks for multiple tasks, combine into ONE task or ask them to add separately.\n\n"
             "Types:\n"
             '• add_task: {"type":"add_task","task":"description","reply":"confirmation with emoji"}\n'
             '• list_tasks: {"type":"list_tasks","reply":"friendly sentence"}\n'
