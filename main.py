@@ -314,6 +314,8 @@ try:
         if message.from_user.id != ALLOWED_USER_ID:
             return
         
+        print("DEBUG: Using NEW inline button version!")
+        
         if not TASKS:
             bot.reply_to(message, "Your task list is empty ✅")
             return
