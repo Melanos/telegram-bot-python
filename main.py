@@ -18,6 +18,10 @@ import sys
 from pathlib import Path
 import pytz
 
+# Set API rate limit
+last_api_call = 0
+MIN_API_INTERVAL = 2  # seconds between API calls
+
 # Set timezone
 EST = pytz.timezone('America/New_York')
 
@@ -520,6 +524,13 @@ try:
             ]
         }
 
+        # Rate limit protection
+        global last_api_call
+        now = time.time()
+        if now - last_api_call < MIN_API_INTERVAL:
+            time.sleep(MIN_API_INTERVAL - (now - last_api_call))
+        last_api_call = time.time()
+        
         try:
             resp = requests.post(
                 "https://api.anthropic.com/v1/messages",
