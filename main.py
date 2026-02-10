@@ -13,6 +13,8 @@ from dateutil import parser as date_parser
 from apscheduler.schedulers.background import BackgroundScheduler
 import re
 import json
+import signal
+import sys
 from pathlib import Path
 
 # Load environment variables
@@ -43,6 +45,14 @@ def save_tasks():
     with open(TASKS_FILE, 'w') as f:
         json.dump(data, f)
 
+def signal_handler(sig, frame):
+    print('🛑 Shutting down bot gracefully...')
+    try:
+        bot.stop_polling()
+        scheduler.shutdown()
+    except:
+        pass
+    sys.exit(0)
 # Load tasks on startup
 TASKS = load_tasks()
 
@@ -52,10 +62,6 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Limit User Access
 ALLOWED_USER_ID = 5244589395
-
-# In-memory task list with due dates and reminder times
-# Structure: {"task": "description", "due": datetime_object or None, "reminder_minutes": int, "reminded": False}
-TASKS = []
 
 # Background scheduler for reminders
 scheduler = BackgroundScheduler()
@@ -242,8 +248,9 @@ try:
             "task": cleaned_text or text,
             "due": due_time,
             "reminder_minutes": reminder_minutes,
-            "reminded": False
+            "reminded": False,
         })
+        save_tasks() 
         
         if due_time:
             formatted = due_time.strftime("%b %d at %I:%M %p")
@@ -495,6 +502,7 @@ try:
                         "reminder_minutes": reminder_minutes,
                         "reminded": False
                     })
+                    save_tasks()
                     
                     idx = len(TASKS)
                     
@@ -536,6 +544,7 @@ try:
                         existing = task_obj["task"]
                         if task_text in existing.lower() or existing.lower() in task_text:
                             removed = TASKS.pop(i)
+                            save_tasks() 
                             break
 
                     if removed:
@@ -557,9 +566,12 @@ try:
         time.sleep(1)  # Wait for Telegram to process
     except:
         pass
+    
 
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     bot.delete_webhook(drop_pending_updates=True)
-    bot.polling(none_stop=True, timeout=60)
+    bot.infinity_polling(timeout=60, long_polling_timeout=60)
 
 except Exception as e:
     print(f"CRITICAL ERROR: Failed to initialize bot with provided token. Error: {e}")
