@@ -1,6 +1,7 @@
 import os
 import time
 from telebot import types
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import json
 import telebot
 import requests
@@ -11,9 +12,39 @@ from datetime import datetime, timedelta
 from dateutil import parser as date_parser
 from apscheduler.schedulers.background import BackgroundScheduler
 import re
+import json
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
+
+TASKS_FILE = Path("tasks.json")
+
+def load_tasks():
+    """Load tasks from file"""
+    if TASKS_FILE.exists():
+        with open(TASKS_FILE, 'r') as f:
+            data = json.load(f)
+            # Convert datetime strings back to objects
+            for task in data:
+                if task.get('due'):
+                    task['due'] = datetime.fromisoformat(task['due'])
+            return data
+    return []
+
+def save_tasks():
+    """Save tasks to file"""
+    data = []
+    for task in TASKS:
+        task_copy = task.copy()
+        if task_copy.get('due'):
+            task_copy['due'] = task_copy['due'].isoformat()
+        data.append(task_copy)
+    with open(TASKS_FILE, 'w') as f:
+        json.dump(data, f)
+
+# Load tasks on startup
+TASKS = load_tasks()
 
 # Tokens from env
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -234,18 +265,26 @@ try:
             bot.reply_to(message, "Your task list is empty ✅")
             return
 
-        lines = []
+        # Create inline buttons for each task
+        markup = InlineKeyboardMarkup()
         for idx, task_obj in enumerate(TASKS):
             task_text = task_obj["task"]
             due_time = task_obj.get("due")
+            
+            # Format button text
             if due_time:
-                formatted = due_time.strftime("%b %d at %I:%M %p")
-                lines.append(f"{idx+1}. {task_text} 📅 {formatted}")
+                formatted = due_time.strftime("%b %d %I:%M %p")
+                button_text = f"✅ {task_text} - {formatted}"
             else:
-                lines.append(f"{idx+1}. {task_text}")
+                button_text = f"✅ {task_text}"
+            
+            # Add button with callback data
+            btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
+            markup.add(btn)
         
-        reply = "Here are your current tasks:\n" + "\n".join(lines)
-        bot.reply_to(message, reply)
+        bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+
+
 
     @bot.message_handler(commands=['donetask'])
     def handle_done_task(message):
@@ -274,21 +313,28 @@ try:
     def cmd_tasks(message):
         if message.from_user.id != ALLOWED_USER_ID:
             return
+        
         if not TASKS:
             bot.reply_to(message, "Your task list is empty ✅")
             return
-        
-        lines = []
+
+        # Create inline buttons for each task
+        markup = InlineKeyboardMarkup()
         for idx, task_obj in enumerate(TASKS):
             task_text = task_obj["task"]
             due_time = task_obj.get("due")
+            
             if due_time:
-                formatted = due_time.strftime("%b %d at %I:%M %p")
-                lines.append(f"{idx+1}. {task_text} 📅 {formatted}")
+                formatted = due_time.strftime("%b %d %I:%M %p")
+                button_text = f"✅ {task_text} - {formatted}"
             else:
-                lines.append(f"{idx+1}. {task_text}")
+                button_text = f"✅ {task_text}"
+            
+            btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
+            markup.add(btn)
         
-        bot.reply_to(message, "Here are your current tasks:\n" + "\n".join(lines))
+        bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+
 
     @bot.message_handler(commands=['menu'])
     def cmd_menu(message):
@@ -309,6 +355,40 @@ try:
             reply_markup=keyboard,
         )
 
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('done_'))
+    def handle_task_completion(call):
+        """Handle when user taps a task button to complete it"""
+        if call.from_user.id != ALLOWED_USER_ID:
+            bot.answer_callback_query(call.id, "Not authorized")
+            return
+        
+        try:
+            # Extract task index from callback data
+            idx = int(call.data.split('_')[1])
+            
+            # Check if task still exists
+            if idx < 0 or idx >= len(TASKS):
+                bot.answer_callback_query(call.id, "Task no longer exists")
+                return
+            
+            # Remove the task
+            done_task = TASKS.pop(idx)
+            task_text = done_task['task']
+            
+            # Show confirmation popup
+            bot.answer_callback_query(call.id, f"✅ Completed: {task_text}")
+            
+            # Update the message
+            bot.edit_message_text(
+                f"✅ Task completed: {task_text}",
+                call.message.chat.id,
+                call.message.id
+            )
+            
+        except Exception as e:
+            bot.answer_callback_query(call.id, "Error completing task")
+            print(f"Error in callback: {e}")
+
     @bot.message_handler(func=lambda msg: True)
     def chat_ai(message):
         if message.from_user.id != ALLOWED_USER_ID:
@@ -321,18 +401,17 @@ try:
             if not TASKS:
                 bot.reply_to(message, "You don't have any tasks to complete right now ✅")
             else:
-                lines = []
+                # Create inline buttons for each task
+                markup = InlineKeyboardMarkup()
                 for idx, task_obj in enumerate(TASKS):
-                    lines.append(f"{idx+1}. {task_obj['task']}")
-                reply = (
-                    "Which task did you complete?\n"
-                    "You can either:\n"
-                    "- Say something like \"I finished: <task text>\" 🤖, or\n"
-                    "- Use /donetask <number>\n\n"
-                    "Here are your tasks:\n" + "\n".join(lines)
-                )
-                bot.reply_to(message, reply)
+                    btn = InlineKeyboardButton(
+                        f"✅ {task_obj['task']}", 
+                        callback_data=f"done_{idx}"
+                    )
+                    markup.add(btn)
+                bot.reply_to(message, "Tap to complete:", reply_markup=markup)
             return
+
 
         headers = {
             "x-api-key": ANTHROPIC_API_KEY,
