@@ -414,7 +414,7 @@ try:
             if not TASKS:
                 bot.reply_to(message, "You don't have any tasks to complete right now ✅")
             else:
-            # Create inline buttons for each task
+                # Create inline buttons for each task
                 markup = InlineKeyboardMarkup()
                 for idx, task_obj in enumerate(TASKS):
                     btn = InlineKeyboardButton(
@@ -424,8 +424,6 @@ try:
                     markup.add(btn)
                 bot.reply_to(message, "Tap to complete:", reply_markup=markup)
             return  # ← Important: return here
-
-
 
         headers = {
             "x-api-key": ANTHROPIC_API_KEY,
@@ -448,7 +446,6 @@ try:
             '"I finished gym" → single remove_task object\n'
             "Return JSON only, no extra text."
         )
-
 
         data = {
             "model": "claude-haiku-4-5-20251001",
@@ -479,97 +476,127 @@ try:
             return
 
         try:
-            start = raw.find("{")
-            end = raw.rfind("}")
-            if start == -1 or end == -1 or end <= start:
-                raise ValueError("No JSON object found in model output")
-
-            json_str = raw[start:end + 1]
+            # Try to find JSON array first, then object
+            json_str = raw.strip()
+            
+            # Remove any markdown code blocks
+            if json_str.startswith("```"):
+                json_str = json_str.split("```")[1]
+                if json_str.startswith("json"):
+                    json_str = json_str[4:]
+            
+            # Try array first
+            array_start = json_str.find("[")
+            array_end = json_str.rfind("]")
+            
+            # Try object
+            obj_start = json_str.find("{")
+            obj_end = json_str.rfind("}")
+            
+            # Determine which format to parse
+            if array_start != -1 and array_end != -1 and (obj_start == -1 or array_start < obj_start):
+                json_str = json_str[array_start:array_end + 1]
+            elif obj_start != -1 and obj_end != -1:
+                json_str = json_str[obj_start:obj_end + 1]
+            else:
+                raise ValueError("No valid JSON found in model output")
+            
             parsed = json.loads(json_str)
-
-            reply_type = parsed.get("type")
-            reply_text = (parsed.get("reply") or "").strip()
-
-            if reply_type == "add_task":
-                task_text = (parsed.get("task") or "").strip()
-                if task_text:
-                    # Parse reminder time first
-                    task_text, reminder_minutes = parse_reminder_time(task_text)
-                    
-                    # Parse date/time from the task
-                    cleaned_text, due_time = parse_datetime_from_text(task_text)
-                    
-                    TASKS.append({
-                        "task": cleaned_text or task_text,
-                        "due": due_time,
-                        "reminder_minutes": reminder_minutes,
-                        "reminded": False
-                    })
-                    save_tasks()
-                    
-                    idx = len(TASKS)
-                    
-                    if due_time:
-                        formatted = due_time.strftime("%b %d at %I:%M %p")
-                        if reminder_minutes >= 60:
-                            hours = reminder_minutes // 60
-                            reminder_str = f"{hours} hour{'s' if hours > 1 else ''}"
-                        else:
-                            reminder_str = f"{reminder_minutes} minutes"
-                        final_reply = f"{reply_text}\n📅 Due: {formatted}\n⏰ Reminder: {reminder_str} before"
-                    else:
-                        final_reply = reply_text or f"Got it, I saved: {task_text} (task #{idx} ✅)"
-                else:
-                    final_reply = reply_text or "Got it 👍"
-
-            elif reply_type == "list_tasks":
-                if not TASKS:
-                    final_reply = "You don't have any tasks right now! 🎉"
-                    bot.reply_to(message, final_reply)
-                else:
-                    markup = InlineKeyboardMarkup()
-                    for idx, task_obj in enumerate(TASKS):
-                        task_text = task_obj["task"]
-                        due_time = task_obj.get("due")
+            
+            # Convert single object to array for uniform processing
+            if isinstance(parsed, dict):
+                parsed = [parsed]
+            elif not isinstance(parsed, list):
+                raise ValueError(f"Expected dict or list, got {type(parsed)}")
+            
+            # Process all actions
+            reply_messages = []
+            
+            for item in parsed:
+                reply_type = item.get("type")
+                reply_text = (item.get("reply") or "").strip()
+                
+                if reply_type == "add_task":
+                    task_text = (item.get("task") or "").strip()
+                    if task_text:
+                        # Parse reminder time first
+                        task_text, reminder_minutes = parse_reminder_time(task_text)
+                        
+                        # Parse date/time from the task
+                        cleaned_text, due_time = parse_datetime_from_text(task_text)
+                        
+                        TASKS.append({
+                            "task": cleaned_text or task_text,
+                            "due": due_time,
+                            "reminder_minutes": reminder_minutes,
+                            "reminded": False
+                        })
+                        save_tasks()
                         
                         if due_time:
-                            formatted = due_time.strftime("%b %d %I:%M %p")
-                            button_text = f"✅ {task_text} - {formatted}"
+                            formatted = due_time.strftime("%b %d at %I:%M %p")
+                            if reminder_minutes >= 60:
+                                hours = reminder_minutes // 60
+                                reminder_str = f"{hours} hour{'s' if hours > 1 else ''}"
+                            else:
+                                reminder_str = f"{reminder_minutes} minutes"
+                            reply_messages.append(f"✅ {cleaned_text or task_text}\n📅 Due: {formatted}\n⏰ Reminder: {reminder_str} before")
                         else:
-                            button_text = f"✅ {task_text}"
-                        
-                        btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
-                        markup.add(btn)
-                    
-                    bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
-                return  # Return here to skip final reply
-            
-            elif reply_type == "remove_task":
-                task_text = (parsed.get("task") or "").strip().lower()
-                if not TASKS or not task_text:
-                    final_reply = reply_text or "I couldn't find a matching task to remove 🤔"
-                else:
-                    removed = None
-                    for i, task_obj in enumerate(TASKS):
-                        existing = task_obj["task"]
-                        if task_text in existing.lower() or existing.lower() in task_text:
-                            removed = TASKS.pop(i)
-                            save_tasks() 
-                            break
-
-                    if removed:
-                        final_reply = reply_text or f"Marked as done and removed: {removed['task']} ✅"
+                            reply_messages.append(reply_text or f"✅ {task_text}")
                     else:
-                        final_reply = reply_text or "I couldn't find a matching task to remove 🤔"
-
-            else:  # "chat"
-                final_reply = reply_text or "Got it 👍"
-
+                        reply_messages.append(reply_text or "Got it 👍")
+                
+                elif reply_type == "list_tasks":
+                    if not TASKS:
+                        bot.reply_to(message, "You don't have any tasks right now! 🎉")
+                    else:
+                        markup = InlineKeyboardMarkup()
+                        for idx, task_obj in enumerate(TASKS):
+                            task_text = task_obj["task"]
+                            due_time = task_obj.get("due")
+                            
+                            if due_time:
+                                formatted = due_time.strftime("%b %d %I:%M %p")
+                                button_text = f"✅ {task_text} - {formatted}"
+                            else:
+                                button_text = f"✅ {task_text}"
+                            
+                            btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
+                            markup.add(btn)
+                        
+                        bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+                    return  # Return here to skip final reply
+                
+                elif reply_type == "remove_task":
+                    task_text = (item.get("task") or "").strip().lower()
+                    if not TASKS or not task_text:
+                        reply_messages.append(reply_text or "I couldn't find a matching task to remove 🤔")
+                    else:
+                        removed = None
+                        for i, task_obj in enumerate(TASKS):
+                            existing = task_obj["task"]
+                            if task_text in existing.lower() or existing.lower() in task_text:
+                                removed = TASKS.pop(i)
+                                save_tasks()
+                                break
+                        
+                        if removed:
+                            reply_messages.append(reply_text or f"✅ Marked as done: {removed['task']}")
+                        else:
+                            reply_messages.append(reply_text or "I couldn't find a matching task to remove 🤔")
+                
+                else:  # "chat"
+                    reply_messages.append(reply_text or "Got it 👍")
+            
+            # Send combined reply
+            if reply_messages:
+                final_reply = "\n\n".join(reply_messages)
+                bot.reply_to(message, final_reply)
+        
         except Exception as e:
             final_reply = f"🔴 JSON parse error:\n{type(e).__name__}: {str(e)}\n\nRAW (first 500 chars):\n{raw[:500]}"
-
-        if reply_type != "list_tasks":
             bot.reply_to(message, final_reply)
+
 
     # IMPORTANT: keep polling at the end
     try:
