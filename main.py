@@ -20,30 +20,41 @@ from pathlib import Path
 # Load environment variables
 load_dotenv()
 
-TASKS_FILE = Path("tasks.json")
+# Loading tasks, if the Railway environment crashes
+TASKS_FILE = "/app/data/tasks.json"
 
 def load_tasks():
-    """Load tasks from file"""
-    if TASKS_FILE.exists():
-        with open(TASKS_FILE, 'r') as f:
-            data = json.load(f)
-            # Convert datetime strings back to objects
-            for task in data:
-                if task.get('due'):
-                    task['due'] = datetime.fromisoformat(task['due'])
-            return data
+    """Load tasks from disk"""
+    try:
+        if os.path.exists(TASKS_FILE):
+            with open(TASKS_FILE, 'r') as f:
+                data = json.load(f)
+                # Convert due dates back to datetime objects
+                for task in data:
+                    if task.get('due'):
+                        task['due'] = datetime.fromisoformat(task['due'])
+                return data
+    except Exception as e:
+        print(f"Error loading tasks: {e}")
     return []
 
 def save_tasks():
-    """Save tasks to file"""
-    data = []
-    for task in TASKS:
-        task_copy = task.copy()
-        if task_copy.get('due'):
-            task_copy['due'] = task_copy['due'].isoformat()
-        data.append(task_copy)
-    with open(TASKS_FILE, 'w') as f:
-        json.dump(data, f)
+    """Save tasks to disk"""
+    try:
+        # Convert datetime objects to ISO strings for JSON
+        data = []
+        for task in TASKS:
+            task_copy = task.copy()
+            if task_copy.get('due'):
+                task_copy['due'] = task_copy['due'].isoformat()
+            data.append(task_copy)
+        
+        with open(TASKS_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Error saving tasks: {e}")
+
+TASKS = load_tasks()
 
 def signal_handler(sig, frame):
     print('🛑 Shutting down bot gracefully...')
