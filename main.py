@@ -239,7 +239,7 @@ def check_reminders():
         
         time_diff_seconds = (now - reminder_time).total_seconds()
         
-        print(f"  Task: {task_obj['task']}, due: {due_time}, reminder: {reminder_time}, diff: {time_diff}s")  # ← Add debug
+        print(f"  Task: {task_obj['task']}, due: {due_time}, reminder: {reminder_time}, diff: {time_diff_seconds}s")
         
         if 0 <= time_diff_seconds <= 120:
             # Within 1 minute window
