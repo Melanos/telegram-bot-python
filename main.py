@@ -16,7 +16,12 @@ import json
 import signal
 import sys
 from pathlib import Path
-# Test persistence - Feb 9
+import pytz
+
+# Set timezone
+EST = pytz.timezone('America/New_York')
+
+
 # Load environment variables
 load_dotenv()
 
@@ -35,7 +40,7 @@ def load_tasks():
                 # Convert due dates back to datetime objects
                 for task in data:
                     if task.get('due'):
-                        task['due'] = datetime.fromisoformat(task['due'])
+                        task['due'] = datetime.fromisoformat(task['due']).replace(tzinfo=EST)
                 print(f"✅ Loaded {len(data)} tasks from {TASKS_FILE}")  # ← Add debug
                 return data
         else:
@@ -130,7 +135,7 @@ def parse_datetime_from_text(text: str):
     if not text:
         return text, None
     
-    now = datetime.now()
+    now = datetime.now(EST)
     text_lower = text.lower().strip()
     
     print(f"🔍 parse_datetime INPUT: '{text}'")  # ← Add this
@@ -145,8 +150,9 @@ def parse_datetime_from_text(text: str):
         
         if unit in ['minute', 'minutes', 'min', 'mins']:
             due_time = now + timedelta(minutes=amount)
-        else:  # hour/hours/hr/hrs
+        else:
             due_time = now + timedelta(hours=amount)
+
         
         cleaned = re.sub(relative_pattern, '', text, flags=re.IGNORECASE).strip()
         print(f"✅ RELATIVE match: amount={amount}, unit={unit}, due_time={due_time}")  # ← Add this
@@ -179,7 +185,7 @@ def check_reminders():
     Background task that runs every minute to check for upcoming tasks.
     Sends reminder at the custom time specified by user.
     """
-    now = datetime.now()
+    now = datetime.now(EST)
     
     for task_obj in TASKS:
         due_time = task_obj.get("due")
