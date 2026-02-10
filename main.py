@@ -89,14 +89,6 @@ def signal_handler(sig, frame):
 # Load tasks on startup
 TASKS = load_tasks()
 
-# temporary removed after 1st run.
-
-# ONE-TIME: Remove old broken tasks
-print("🧹 Cleaning up old tasks...")
-TASKS = [task for task in TASKS if task.get('due') is not None]
-save_tasks()
-print(f"✅ {len(TASKS)} valid tasks remaining")
-
 
 # Tokens from env
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -195,26 +187,28 @@ def parse_datetime_from_text(text: str):
         return text, None
 
 def check_reminders():
-    """
-    Background task that runs every minute to check for upcoming tasks.
-    Sends reminder at the custom time specified by user.
-    """
-    now = datetime.now(EST)
+    """Check for upcoming tasks and send reminders"""
+    now = datetime.now(EST)  # ← Make sure this is EST
+    print(f"🔔 Checking reminders at {now}")  # ← Add debug
     
     for task_obj in TASKS:
         due_time = task_obj.get("due")
         if not due_time or task_obj.get("reminded"):
             continue
         
-        reminder_minutes = task_obj.get("reminder_minutes", 60)
+        # Ensure due_time is timezone-aware
+        if due_time.tzinfo is None:
+            due_time = EST.localize(due_time)
         
-        # Calculate when to send reminder
+        reminder_minutes = task_obj.get("reminder_minutes", 60)
         reminder_time = due_time - timedelta(minutes=reminder_minutes)
         
-        # Check if we're within 1 minute of reminder time (for reliability)
         time_diff = abs((now - reminder_time).total_seconds())
         
-        if time_diff <= 60:  # Within 1 minute window
+        print(f"  Task: {task_obj['task']}, due: {due_time}, reminder: {reminder_time}, diff: {time_diff}s")  # ← Add debug
+        
+        if time_diff <= 60:
+            # Within 1 minute window
             task_text = task_obj["task"]
             formatted_time = due_time.strftime("%I:%M %p")
             
@@ -548,17 +542,23 @@ try:
             "You're Igor's Telegram task assistant. Return valid JSON.\n\n"
             "For SINGLE task: Return one object\n"
             "For MULTIPLE tasks: Return array of objects\n\n"
+            "IMPORTANT: Keep ALL time/date info in the task field!\n"
+            "Examples:\n"
+            "- 'remind me gym tomorrow 6pm' → {\"task\":\"gym tomorrow 6pm\"}\n"
+            "- 'remind me in 5 minutes to X' → {\"task\":\"X in 5 minutes\"}\n"
+            "- 'call mom at 3pm Friday' → {\"task\":\"call mom at 3pm Friday\"}\n\n"
             "Types:\n"
-            '• add_task: {"type":"add_task","task":"description","reply":"confirmation"}\n'
+            '• add_task: {"type":"add_task","task":"FULL description with time","reply":"confirmation"}\n'
             '• list_tasks: {"type":"list_tasks","reply":"sentence"}\n'
             '• remove_task: {"type":"remove_task","task":"description","reply":"confirmation"}\n'
             '• chat: {"type":"chat","reply":"answer"}\n\n'
-            "Examples:\n"
-            '"remind me gym tomorrow 6pm" → single add_task object\n'
+            "More examples:\n"
+            '"remind me gym tomorrow 6pm" → single add_task with task="gym tomorrow 6pm"\n'
             '"remind me to X and Y" → array of 2 add_task objects\n'
-            '"I finished gym" → single remove_task object\n'
+            '"I finished gym" → single remove_task\n'
             "Return JSON only, no extra text."
         )
+
 
         data = {
             "model": "claude-haiku-4-5-20251001",
