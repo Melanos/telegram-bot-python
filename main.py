@@ -104,6 +104,29 @@ def parse_datetime_from_text(text: str):
     Extract datetime from natural language using dateutil.
     Returns (cleaned_text, datetime_object or None)
     """
+    if not text:
+        return text, None
+    
+    now = datetime.now()
+    text_lower = text.lower().strip()
+    
+    # ========== NEW: Handle relative time FIRST ==========
+    # "in X minutes/hours"
+    relative_pattern = r'\bin\s+(\d+)\s+(minute|minutes|hour|hours|min|mins|hr|hrs)\b'
+    match = re.search(relative_pattern, text_lower)
+    if match:
+        amount = int(match.group(1))
+        unit = match.group(2)
+        
+        if unit in ['minute', 'minutes', 'min', 'mins']:
+            due_time = now + timedelta(minutes=amount)
+        else:  # hour/hours/hr/hrs
+            due_time = now + timedelta(hours=amount)
+        
+        # Remove the "in X minutes/hours" part from text
+        cleaned = re.sub(relative_pattern, '', text, flags=re.IGNORECASE).strip()
+        return cleaned, due_time
+    
     try:
         # Common patterns: "tomorrow at 6pm", "Friday 3pm", "Feb 12 at 2pm"
         dt = date_parser.parse(text, fuzzy=True)
