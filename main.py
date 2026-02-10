@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 import pytz
 
+
 # Set API rate limit
 last_api_call = 0
 MIN_API_INTERVAL = 2  # seconds between API calls
@@ -87,6 +88,15 @@ def signal_handler(sig, frame):
     sys.exit(0)
 # Load tasks on startup
 TASKS = load_tasks()
+
+# temporary removed after 1st run.
+
+# ONE-TIME: Remove old broken tasks
+print("🧹 Cleaning up old tasks...")
+TASKS = [task for task in TASKS if task.get('due') is not None]
+save_tasks()
+print(f"✅ {len(TASKS)} valid tasks remaining")
+
 
 # Tokens from env
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -463,6 +473,7 @@ try:
             
             # Remove the task
             done_task = TASKS.pop(idx)
+            save_tasks()
             task_text = done_task['task']
             
             # Show confirmation popup
