@@ -321,7 +321,10 @@ try:
         save_tasks() 
         
         if due_time:
-            formatted = due_time.strftime("%b %d at %I:%M %p")
+            # Ensure timezone-aware
+            if due_time.tzinfo is None:
+                due_time = EST.localize(due_time)
+            formatted = due_time.strftime("%b %d %I:%M %p")
             if reminder_minutes >= 60:
                 hours = reminder_minutes // 60
                 reminder_str = f"{hours} hour{'s' if hours > 1 else ''}"
@@ -352,6 +355,9 @@ try:
             
             # Format button text
             if due_time:
+                # Ensure timezone-aware
+                if due_time.tzinfo is None:
+                    due_time = EST.localize(due_time)
                 formatted = due_time.strftime("%b %d %I:%M %p")
                 button_text = f"✅ {task_text} - {formatted}"
             else:
@@ -406,6 +412,9 @@ try:
             due_time = task_obj.get("due")
             
             if due_time:
+                # Ensure timezone-aware
+                if due_time.tzinfo is None:
+                    due_time = EST.localize(due_time)
                 formatted = due_time.strftime("%b %d %I:%M %p")
                 button_text = f"✅ {task_text} - {formatted}"
             else:
@@ -492,6 +501,31 @@ try:
                     markup.add(btn)
                 bot.reply_to(message, "Tap to complete:", reply_markup=markup)
             return  # ← Important: return here
+        
+        if text == "📋 List tasks":  # ← Menu button bypass
+            if not TASKS:
+                bot.reply_to(message, "You don't have any tasks right now! 🎉")
+                return
+            
+            markup = InlineKeyboardMarkup()
+            for idx, task_obj in enumerate(TASKS):
+                task_text = task_obj["task"]
+                due_time = task_obj.get("due")
+                
+                if due_time:
+                    # Ensure timezone-aware
+                    if due_time.tzinfo is None:
+                        due_time = EST.localize(due_time)
+                    formatted = due_time.strftime("%b %d %I:%M %p")
+                    button_text = f"✅ {task_text} - {formatted}"
+                else:
+                    button_text = f"✅ {task_text}"
+                
+                btn = InlineKeyboardButton(button_text, callback_data=f"done_{idx}")
+                markup.add(btn)
+            
+            bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+            return  # ← Skip AI completely
 
         headers = {
             "x-api-key": ANTHROPIC_API_KEY,
@@ -609,6 +643,9 @@ try:
                         save_tasks()
                         
                         if due_time:
+                            # Ensure timezone-aware
+                            if due_time.tzinfo is None:
+                                due_time = EST.localize(due_time)
                             formatted = due_time.strftime("%b %d at %I:%M %p")
                             if reminder_minutes >= 60:
                                 hours = reminder_minutes // 60
@@ -631,6 +668,9 @@ try:
                             due_time = task_obj.get("due")
                             
                             if due_time:
+                                # Ensure timezone-aware
+                                if due_time.tzinfo is None:
+                                    due_time = EST.localize(due_time)
                                 formatted = due_time.strftime("%b %d %I:%M %p")
                                 button_text = f"✅ {task_text} - {formatted}"
                             else:
