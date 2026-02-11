@@ -20,7 +20,8 @@ MIN_API_INTERVAL = 2  # seconds between API calls
 EST = pytz.timezone('America/New_York')
 
 # File paths
-TASKS_FILE = "/app/data/tasks.json"
+DATA_DIR = "/app/data"
+TASKS_FILE = f"{DATA_DIR}/tasks.json"
 
 # Reminder settings
 DEFAULT_REMINDER_MINUTES = 60
