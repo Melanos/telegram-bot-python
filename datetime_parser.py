@@ -109,6 +109,9 @@ def parse_datetime_from_text(text: str) -> Tuple[str, Optional[datetime]]:
     print(f"⚠️ No relative match, trying dateutil parser...")
     
     try:
+        # Check if "today" is explicitly mentioned
+        has_today = bool(re.search(r'\btoday\b', text_lower))
+        
         dt = date_parser.parse(text, fuzzy=True)
         print(f"📅 dateutil parsed: {dt}")
         
@@ -117,12 +120,18 @@ def parse_datetime_from_text(text: str) -> Tuple[str, Optional[datetime]]:
             dt = EST.localize(dt)
             print(f"🌍 Localized to EST: {dt}")
         
-        # Compare with timezone-aware now
+        # FIX: If user said "today", force it to be today
         now_aware = datetime.now(EST)
+        if has_today and dt.date() != now_aware.date():
+            print(f"⚠️ User said 'today' but dateutil gave {dt.date()}, forcing to today")
+            dt = dt.replace(year=now_aware.year, month=now_aware.month, day=now_aware.day)
+            print(f"✅ Corrected to: {dt}")
+        
+        # If parsed time is in the past and it's the same date, assume tomorrow
         if dt < now_aware:
             if dt.date() == now_aware.date():
                 dt = dt + timedelta(days=1)
-                print(f"⏭️ Adjusted to tomorrow: {dt}")
+                print(f"⏭️ Time passed today, adjusted to tomorrow: {dt}")
         
         cleaned = re.sub(r'\b(at|on|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', '', text, flags=re.IGNORECASE)
         cleaned = re.sub(r'\d{1,2}:\d{2}\s*(am|pm)?', '', cleaned, flags=re.IGNORECASE)
@@ -130,6 +139,6 @@ def parse_datetime_from_text(text: str) -> Tuple[str, Optional[datetime]]:
         cleaned = re.sub(r'\s+', ' ', cleaned).strip()
         
         return cleaned, dt
-    except:
-        print(f"❌ dateutil failed to parse")
+    except Exception as e:
+        print(f"❌ dateutil failed to parse: {e}")
         return text, None
