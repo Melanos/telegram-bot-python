@@ -142,3 +142,40 @@ def parse_datetime_from_text(text: str) -> Tuple[str, Optional[datetime]]:
     except Exception as e:
         print(f"❌ dateutil failed to parse: {e}")
         return text, None
+
+def validate_claude_datetime(due_str: Optional[str]) -> Optional[datetime]:
+    """
+    Validate and parse datetime string from Claude.
+    
+    Args:
+        due_str: ISO datetime string from Claude (or None)
+        
+    Returns:
+        datetime object or None
+    """
+    if not due_str:
+        return None
+    
+    try:
+        # Parse ISO datetime
+        dt = datetime.fromisoformat(due_str.replace('Z', '+00:00'))
+        
+        # Make timezone-aware if naive
+        if dt.tzinfo is None:
+            dt = EST.localize(dt)
+        else:
+            # Convert to EST
+            dt = dt.astimezone(EST)
+        
+        # Validation: check if it's reasonable (not too far in past)
+        now = datetime.now(EST)
+        if dt < now - timedelta(minutes=5):
+            print(f"⚠️ Claude gave past datetime: {dt}, ignoring")
+            return None
+        
+        print(f"✅ Validated datetime: {dt}")
+        return dt
+        
+    except Exception as e:
+        print(f"❌ Failed to parse datetime from Claude: {due_str}, error: {e}")
+        return None
