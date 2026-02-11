@@ -418,11 +418,12 @@ def chat_ai(message):
         if reply_type == "add_task":
             task_text = (item.get("task") or "").strip()
             if task_text:
-                # Parse reminder time first
-                task_text, user_reminder = parse_reminder_time(task_text)
+                # Get datetime from Claude (already parsed!)
+                due_str = item.get("due")
+                due_time = validate_claude_datetime(due_str)
                 
-                # Parse date/time from the task
-                cleaned_text, due_time = parse_datetime_from_text(task_text)
+                # Get custom reminder time from Claude
+                reminder_minutes = item.get("reminder_minutes", 60)
                 
                 # Smart reminder: use user's choice OR auto-calculate
                 if user_reminder == 60 and due_time:
