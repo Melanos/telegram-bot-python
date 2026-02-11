@@ -3,6 +3,8 @@ import time
 import json
 import requests
 import yfinance as yf
+from datetime import datetime
+from config import EST
 from typing import Dict, Any, List, Union
 from config import ANTHROPIC_API_KEY, MIN_API_INTERVAL
 
@@ -51,24 +53,37 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
     """
     global _last_api_call
     
+    # Get current time to give Claude context
+    now = datetime.now(EST)
+    current_time_str = now.strftime("%Y-%m-%d %H:%M:%S %Z")
+    
     system_prompt = (
-        "You're Igor's Telegram task assistant. Return valid JSON.\n\n"
+        f"You're Igor's Telegram task assistant. Return valid JSON.\n"
+        f"Current time: {current_time_str}\n\n"
+        "IMPORTANT: Parse ALL datetime info and return ISO format!\n\n"
         "For SINGLE task: Return one object\n"
         "For MULTIPLE tasks: Return array of objects\n\n"
-        "IMPORTANT: Keep ALL time/date info in the task field!\n"
-        "Examples:\n"
-        "- 'remind me gym tomorrow 6pm' → {\"task\":\"gym tomorrow 6pm\"}\n"
-        "- 'remind me in 5 minutes to X' → {\"task\":\"X in 5 minutes\"}\n"
-        "- 'call mom at 3pm Friday' → {\"task\":\"call mom at 3pm Friday\"}\n\n"
-        "Types:\n"
-        '• add_task: {"type":"add_task","task":"FULL description with time","reply":"confirmation"}\n'
+        "Task Structure:\n"
+        '• add_task: {"type":"add_task","task":"clean description","due":"ISO datetime or null","reminder_minutes":60,"reply":"confirmation"}\n'
         '• list_tasks: {"type":"list_tasks","reply":"sentence"}\n'
         '• remove_task: {"type":"remove_task","task":"description","reply":"confirmation"}\n'
         '• chat: {"type":"chat","reply":"answer"}\n\n'
-        "More examples:\n"
-        '"remind me gym tomorrow 6pm" → single add_task with task="gym tomorrow 6pm"\n'
-        '"remind me to X and Y" → array of 2 add_task objects\n'
-        '"I finished gym" → single remove_task\n'
+        "DateTime Parsing Rules:\n"
+        "1. 'in X minutes/hours' → Calculate exact ISO datetime from current time\n"
+        "2. 'at 10pm today' → Use today's date with that time\n"
+        "3. 'tomorrow at 6pm' → Use tomorrow's date with that time\n"
+        "4. 'Friday 3pm' → Next Friday at 3pm\n"
+        "5. No time mentioned → set 'due' to null\n\n"
+        "Reminder Minutes:\n"
+        "- User says 'remind me 30 minutes before' → reminder_minutes: 30\n"
+        "- User says '2 hours before' → reminder_minutes: 120\n"
+        "- No custom reminder → reminder_minutes: 60 (default)\n\n"
+        "Examples:\n"
+        '"remind me gym tomorrow at 6pm" → {"type":"add_task","task":"gym","due":"2026-02-11T18:00:00","reminder_minutes":60,"reply":"Got it!"}\n'
+        '"pet harry in 5 minutes" → {"type":"add_task","task":"pet harry","due":"2026-02-10T22:30:00","reminder_minutes":60,"reply":"Added!"}\n'
+        '"remind me 30 min before meeting at 3pm today" → {"type":"add_task","task":"meeting","due":"2026-02-10T15:00:00","reminder_minutes":30,"reply":"Set!"}\n'
+        '"call mom" → {"type":"add_task","task":"call mom","due":null,"reminder_minutes":60,"reply":"Added!"}\n'
+        '"I finished gym" → {"type":"remove_task","task":"gym","reply":"Nice work!"}\n\n'
         "Return JSON only, no extra text."
     )
     
@@ -172,3 +187,40 @@ def _parse_claude_response(raw: str) -> Union[List[Dict[str, Any]], Dict[str, st
             "message": str(e),
             "raw": raw[:500]
         }
+
+def validate_claude_datetime(due_str: Optional[str]) -> Optional[datetime]:
+    """
+    Validate and parse datetime string from Claude.
+    
+    Args:
+        due_str: ISO datetime string from Claude (or None)
+        
+    Returns:
+        datetime object or None
+    """
+    if not due_str:
+        return None
+    
+    try:
+        # Parse ISO datetime
+        dt = datetime.fromisoformat(due_str.replace('Z', '+00:00'))
+        
+        # Make timezone-aware if naive
+        if dt.tzinfo is None:
+            dt = EST.localize(dt)
+        else:
+            # Convert to EST
+            dt = dt.astimezone(EST)
+        
+        # Validation: check if it's reasonable (not too far in past)
+        now = datetime.now(EST)
+        if dt < now - timedelta(minutes=5):
+            print(f"⚠️ Claude gave past datetime: {dt}, ignoring")
+            return None
+        
+        print(f"✅ Validated datetime: {dt}")
+        return dt
+        
+    except Exception as e:
+        print(f"❌ Failed to parse datetime from Claude: {due_str}, error: {e}")
+        return None

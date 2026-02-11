@@ -24,3 +24,6 @@ TASKS_FILE = "/app/data/tasks.json"
 
 # Reminder settings
 DEFAULT_REMINDER_MINUTES = 60
+
+# Alert settings
+ALERT_CHECK_INTERVAL = 300  # Check prices every 5 minutes

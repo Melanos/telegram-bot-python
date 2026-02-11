@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 # Import custom modules
 from config import TELEGRAM_BOT_TOKEN, ALLOWED_USER_ID, EST
 from task_manager import TaskManager
-from datetime_parser import parse_reminder_time, calculate_smart_reminder, parse_datetime_from_text
+from datetime_parser import calculate_smart_reminder, validate_claude_datetime
 from ui_helpers import (
     create_main_menu_keyboard,
     create_task_completion_keyboard,
@@ -18,10 +18,8 @@ from ui_helpers import (
 from api_handlers import get_stock_price, call_claude_api
 from reminder_system import check_reminders
 from commands import register_commands
+from stock_alerts import AlertManager, start_alert_monitoring
 
-
-# Initialize task manager
-task_manager = TaskManager()
 
 # Initialize bot
 try:
@@ -36,7 +34,13 @@ except Exception as e:
     print("The application will hang to prevent a restart loop.")
     while True:
         time.sleep(3600)
+        
+# Initialize task manager
+task_manager = TaskManager()
 
+# Initialize alert manager
+alert_manager = AlertManager()
+start_alert_monitoring(alert_manager, bot, check_interval=300)
 
 # Reminder scheduler
 scheduler = BackgroundScheduler()
@@ -58,6 +62,7 @@ def send_reminder(task_index: int, task_obj: dict):
 
 def reminder_job():
     """Job for the scheduler to check reminders."""
+    print(f"🔍 [{datetime.now(EST).strftime('%H:%M:%S')}] Checking reminders...")
     check_reminders(task_manager, send_reminder)
 
 
@@ -122,6 +127,44 @@ def handle_stock(message):
 
 @bot.message_handler(commands=['addtask'])
 def handle_add_task(message):
+    """Handle /addtask command."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+
+    text = message.text[len("/addtask"):].strip()
+    if not text:
+        bot.reply_to(message, "Usage: /addtask <task description>")
+        return
+
+    # Let Claude parse it
+    result = call_claude_api(text)
+    
+    if isinstance(result, dict) and "error" in result:
+        bot.reply_to(message, "Error processing task")
+        return
+    
+    # Process first result
+    if result and len(result) > 0:
+        item = result[0]
+        task_text = (item.get("task") or text).strip()
+        due_str = item.get("due")
+        due_time = validate_claude_datetime(due_str)
+        reminder_minutes = item.get("reminder_minutes", 60)
+        
+        if reminder_minutes == 60 and due_time:
+            reminder_minutes = calculate_smart_reminder(due_time)
+        
+        task_manager.add_task(task_text, due_time, reminder_minutes)
+        
+        formatted_msg = format_task_added_message(
+            task_text,
+            due_time,
+            reminder_minutes
+        )
+        
+        task_count = task_manager.get_task_count()
+        bot.reply_to(message, f"Added task #{task_count}: {formatted_msg}")
+
     """Handle /addtask command."""
     if message.from_user.id != ALLOWED_USER_ID:
         return
@@ -238,6 +281,85 @@ def handle_task_completion(call):
         bot.answer_callback_query(call.id, "Error completing task")
         print(f"Error in callback: {e}")
 
+@bot.message_handler(commands=['alert'])
+def handle_add_alert(message):
+    """
+    Usage: /alert SYMBOL PRICE [above|below]
+    Example: /alert IONQ 25 above
+    """
+    try:
+        parts = message.text.split()
+        
+        if len(parts) < 3:
+            bot.reply_to(
+                message,
+                "❌ Usage: /alert SYMBOL PRICE [above|below]\n"
+                "Example: /alert IONQ 25 above"
+            )
+            return
+        
+        symbol = parts[1].upper()
+        target_price = float(parts[2])
+        condition = parts[3].lower() if len(parts) > 3 else "above"
+        
+        if condition not in ["above", "below"]:
+            condition = "above"
+        
+        result = alert_manager.add_alert(
+            user_id=message.from_user.id,
+            symbol=symbol,
+            target_price=target_price,
+            condition=condition
+        )
+        
+        bot.reply_to(message, result["message"])
+        
+    except ValueError:
+        bot.reply_to(message, "❌ Invalid price. Use: /alert SYMBOL PRICE")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+
+@bot.message_handler(commands=['alerts'])
+def handle_list_alerts(message):
+    """List all active alerts for the user."""
+    user_alerts = alert_manager.get_user_alerts(message.from_user.id)
+    
+    if not user_alerts:
+        bot.reply_to(message, "You have no active alerts.\n\nUse /alert SYMBOL PRICE to create one!")
+        return
+    
+    response = "🔔 Your Active Alerts:\n\n"
+    for i, alert in enumerate(user_alerts, 1):
+        response += (
+            f"{i}. {alert['symbol']} {alert['condition']} "
+            f"${alert['target_price']:.2f}\n"
+        )
+    
+    response += f"\n📊 Total: {len(user_alerts)} alert(s)"
+    bot.reply_to(message, response)
+
+
+@bot.message_handler(commands=['removealert'])
+def handle_remove_alert(message):
+    """
+    Remove an alert.
+    Usage: /removealert SYMBOL
+    """
+    try:
+        parts = message.text.split()
+        
+        if len(parts) < 2:
+            bot.reply_to(message, "❌ Usage: /removealert SYMBOL\nExample: /removealert IONQ")
+            return
+        
+        symbol = parts[1].upper()
+        result = alert_manager.remove_alert(message.from_user.id, symbol)
+        bot.reply_to(message, result["message"])
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
 
 @bot.message_handler(func=lambda msg: True)
 def chat_ai(message):
@@ -265,6 +387,9 @@ def chat_ai(message):
         else:
             markup = create_task_completion_keyboard(tasks)
             bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
+            return
+    if text == "🔔 My Alerts":
+        handle_list_alerts(message)
         return
 
     # Call Claude API
