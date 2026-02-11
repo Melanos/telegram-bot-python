@@ -445,6 +445,7 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "pytz" },
+    { name = "requests" },
     { name = "yfinance" },
 ]
 
@@ -455,6 +456,7 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.8.2,<3" },
     { name = "python-dotenv", specifier = ">=1.2.1,<2" },
     { name = "pytz", specifier = ">=2024.1" },
+    { name = "requests", specifier = ">=2.31.0,<3" },
     { name = "yfinance", specifier = ">=0.2.50,<0.3" },
 ]
 
