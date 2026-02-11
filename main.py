@@ -101,14 +101,14 @@ def send_welcome(message):
     keyboard = create_main_menu_keyboard()
     bot.reply_to(
         message,
-        "Hello! I'm your personal Telegram bot 🤖\n\n"
-        "I can handle reminders with custom times!\n\n"
-        "Examples:\n"
-        "• 'Remind me to go to gym tomorrow at 6pm'\n"
-        "• 'Remind me 30 minutes before gym tomorrow at 6pm'\n"
-        "• 'Remind me 2 hours before the meeting Friday 3pm'",
+        "👋 Hello! I'm your personal AI assistant!\n\n"
+        "I can help you with:\n"
+        "✅ Task reminders with natural language\n"
+        "📈 Stock price tracking and alerts\n\n"
+        "Just chat naturally, or type `/help` to see all commands!",
         reply_markup=keyboard
     )
+
 
 
 @bot.message_handler(commands=['stock'])
@@ -362,6 +362,33 @@ def handle_remove_alert(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    """Handle /help command."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    help_text = (
+        "🤖 *Available Commands*\n\n"
+        "*Task Management:*\n"
+        "• Just chat naturally - I understand!\n"
+        "• `/addtask <description>` - Add a task\n"
+        "• `/listtasks` - Show all tasks\n"
+        "• `/donetask <number>` - Complete a task\n\n"
+        "*Stock Tracking:*\n"
+        "• `/stock SYMBOL` - Check price (e.g., `/stock AAPL`)\n"
+        "• `/alert SYMBOL PRICE [above|below]` - Set alert\n"
+        "  Example: `/alert ETH-USD 2000 below`\n"
+        "• `/alerts` - View active alerts\n"
+        "• `/removealert SYMBOL` - Remove alert\n\n"
+        "*Other:*\n"
+        "• `/menu` - Show menu keyboard\n"
+        "• `/help` - Show this message\n\n"
+        "💡 *Tip:* You can also use the buttons below! 👇"
+    )
+    
+    keyboard = create_main_menu_keyboard()
+    bot.reply_to(message, help_text, parse_mode="Markdown", reply_markup=keyboard)
 
 @bot.message_handler(func=lambda msg: True)
 def chat_ai(message):
