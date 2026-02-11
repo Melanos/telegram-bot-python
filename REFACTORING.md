@@ -78,7 +78,7 @@ ANTHROPIC_API_KEY=your_claude_api_key_here
 ## 📝 Backup
 
 - Original code backed up to: `main_backup.py`
-- Refactored version available as: `main_refactored.py`
+- Current code in: `main.py` (refactored version)
 
 ## 🎯 Next Steps
 
