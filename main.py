@@ -389,7 +389,8 @@ def chat_ai(message):
         else:
             markup = create_task_completion_keyboard(tasks)
             bot.reply_to(message, "Tap a task to mark it complete:", reply_markup=markup)
-            return
+        return
+
     if text == "🔔 My Alerts":
         handle_list_alerts(message)
         return
@@ -425,22 +426,21 @@ def chat_ai(message):
                 # Get custom reminder time from Claude
                 reminder_minutes = item.get("reminder_minutes", 60)
                 
-                # Smart reminder: use user's choice OR auto-calculate
-                if user_reminder == 60 and due_time:
+                # If default reminder and we have a due time, calculate smart reminder
+                if reminder_minutes == 60 and due_time:
                     reminder_minutes = calculate_smart_reminder(due_time)
-                else:
-                    reminder_minutes = user_reminder
                 
-                task_manager.add_task(cleaned_text or task_text, due_time, reminder_minutes)
+                task_manager.add_task(task_text, due_time, reminder_minutes)
                 
                 formatted_msg = format_task_added_message(
-                    cleaned_text or task_text,
+                    task_text,
                     due_time,
                     reminder_minutes
                 )
                 reply_messages.append(formatted_msg)
             else:
                 reply_messages.append(reply_text or "Got it 👍")
+
         
         elif reply_type == "list_tasks":
             tasks = task_manager.get_all_tasks()
