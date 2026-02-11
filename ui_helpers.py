@@ -6,6 +6,8 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import EST
 
 
+
+
 def create_main_menu_keyboard() -> types.ReplyKeyboardMarkup:
     """Create the main menu keyboard."""
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -13,8 +15,10 @@ def create_main_menu_keyboard() -> types.ReplyKeyboardMarkup:
     btn_add_task = types.KeyboardButton("➕ Add task")
     btn_done_task = types.KeyboardButton("✅ Complete task")
     btn_stock = types.KeyboardButton("📈 Check stock price")
+    btn_alerts = types.KeyboardButton("🔔 My Alerts")
     keyboard.add(btn_tasks, btn_add_task)
     keyboard.add(btn_done_task, btn_stock)
+    keyboard.add(btn_alerts) 
     return keyboard
 
 
@@ -114,3 +118,5 @@ def format_reminder_message(task_text: str, due_time: datetime) -> str:
         time_str = f"in ~{minutes_until} minutes"
     
     return f"⏰ Reminder: {task_text}\n📅 Due at {formatted_time} ({time_str})"
+
+
