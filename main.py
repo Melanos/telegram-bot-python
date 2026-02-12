@@ -102,6 +102,14 @@ def process_protein_input(message):
     if message.from_user.id != ALLOWED_USER_ID:
         return
     
+    text = message.text.strip()
+    
+    # Check if user clicked a menu button instead - pass it to chat_ai
+    if text in ["📋 List tasks", "✅ Complete task", "🥩 Log Protein", "💪 Log Workout", 
+                "📊 My Stats", "📅 History", "🔔 My Alerts"]:
+        chat_ai(message)  # Let the main handler process it
+        return
+    
     try:
         # Simulate /protein command
         message.text = f"/protein {message.text}"
@@ -113,6 +121,14 @@ def process_protein_input(message):
 def process_workout_input(message):
     """Process workout input after button press."""
     if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    text = message.text.strip()
+    
+    # Check if user clicked a menu button instead - pass it to chat_ai
+    if text in ["📋 List tasks", "✅ Complete task", "🥩 Log Protein", "💪 Log Workout", 
+                "📊 My Stats", "📅 History", "🔔 My Alerts"]:
+        chat_ai(message)  # Let the main handler process it
         return
     
     try:
