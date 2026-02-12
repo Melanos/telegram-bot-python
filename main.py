@@ -376,6 +376,56 @@ def handle_remove_alert(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
 
+@bot.message_handler(commands=['dbstats'])
+def handle_db_stats(message):
+    """Show database statistics."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    if db is None:
+        bot.reply_to(message, "❌ Database not connected")
+        return
+    
+    try:
+        session = db.get_session()
+        
+        # Import models
+        from database.db_manager import UserProfile, Conversation, HealthTracking
+        
+        # Count records in each table
+        user_count = session.query(UserProfile).count()
+        conversation_count = session.query(Conversation).count()
+        health_count = session.query(HealthTracking).count()
+        
+        # Get your user info
+        telegram_id = str(message.from_user.id)
+        user = db.get_user(telegram_id)
+        
+        response = "📊 **Database Statistics**\n\n"
+        response += f"👤 Users: {user_count}\n"
+        response += f"💬 Conversations: {conversation_count}\n"
+        response += f"🏋️ Health logs: {health_count}\n\n"
+        
+        if user:
+            response += "**Your Profile:**\n"
+            response += f"Name: {user.name}\n"
+            response += f"Protein target: {user.protein_target}g\n"
+            response += f"Calorie target: {user.calorie_target}\n"
+            response += f"Created: {user.created_at.strftime('%Y-%m-%d %H:%M')}\n"
+        
+        # Get recent conversations
+        conversations = db.get_recent_conversations(telegram_id, limit=3)
+        if conversations:
+            response += f"\n**Recent Conversations:** {len(conversations)}\n"
+        
+        session.close()
+        bot.reply_to(message, response, parse_mode="Markdown")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error querying database: {e}")
+        import traceback
+        print(traceback.format_exc())
+
 @bot.message_handler(commands=['help'])
 def send_help(message):
     """Handle /help command."""
