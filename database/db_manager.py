@@ -43,7 +43,7 @@ class Conversation(Base):
     user_message = Column(Text)
     bot_response = Column(Text)
     category = Column(String)  # e.g., "health", "learning", "general"
-    metadata = Column(JSON)  # Store extra context
+    extra_data = Column(JSON)  # Store extra context
 
 
 class HealthTracking(Base):
@@ -145,7 +145,7 @@ class DatabaseManager:
                 user_message=user_message,
                 bot_response=bot_response,
                 category=category,
-                metadata=metadata or {}
+                extra_data=metadata or {}
             )
             session.add(conversation)
             session.commit()
