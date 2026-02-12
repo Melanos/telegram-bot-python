@@ -445,6 +445,7 @@ def send_help(message):
         "  Example: `/workout Push - chest day`\n"
         "• `/stats` - Show today's progress\n"
         "• `/history` - Show last 7 days\n\n"
+        "• `/resettoday` - Reset today's data (testing)\n\n"
         "*Stock Tracking:*\n"
         "• `/stock SYMBOL` - Check price (e.g., `/stock AAPL`)\n"
         "• `/alert SYMBOL PRICE [above|below]` - Set alert\n"
@@ -654,6 +655,39 @@ def handle_history(message):
         
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['resettoday'])
+def handle_reset_today(message):
+    """Reset today's health tracking data."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        telegram_id = str(message.from_user.id)
+        session = db.get_session()
+        
+        from database.db_manager import HealthTracking
+        from datetime import datetime
+        
+        # Delete today's tracking
+        today = datetime.utcnow().date()
+        deleted = session.query(HealthTracking)\
+            .filter(HealthTracking.telegram_id == telegram_id)\
+            .filter(HealthTracking.date >= today)\
+            .delete()
+        
+        session.commit()
+        session.close()
+        
+        if deleted > 0:
+            bot.reply_to(message, f"✅ Reset today's data!\n\n🗑️ Deleted {deleted} record(s)")
+        else:
+            bot.reply_to(message, "ℹ️ No data to reset for today")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+        import traceback
+        print(traceback.format_exc())
 
 @bot.message_handler(func=lambda msg: True)
 def chat_ai(message):
