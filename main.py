@@ -97,6 +97,30 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
+def process_protein_input(message):
+    """Process protein input after button press."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        # Simulate /protein command
+        message.text = f"/protein {message.text}"
+        handle_log_protein(message)
+    except:
+        bot.reply_to(message, "❌ Please use format: <amount> <food>\nExample: 50 chicken breast")
+
+
+def process_workout_input(message):
+    """Process workout input after button press."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        # Simulate /workout command
+        message.text = f"/workout {message.text}"
+        handle_log_workout(message)
+    except:
+        bot.reply_to(message, "❌ Please describe your workout\nExample: Push - chest day")
 
 # ============================================================================
 # BOT HANDLERS
@@ -123,8 +147,6 @@ def send_welcome(message):
 
     log_conversation(db, message, response)
     
-
-
 @bot.message_handler(commands=['stock'])
 def handle_stock(message):
     """Handle /stock command."""
@@ -165,10 +187,15 @@ def handle_add_task(message):
         task_text = (item.get("task") or text).strip()
         due_str = item.get("due")
         due_time = validate_claude_datetime(due_str)
+        
+        # Claude provides reminder_minutes in the response
         reminder_minutes = item.get("reminder_minutes", 60)
         
+        # If Claude didn't specify a custom reminder AND we have a due time,
+        # use smart reminder calculation
         if reminder_minutes == 60 and due_time:
             reminder_minutes = calculate_smart_reminder(due_time)
+            print(f"🧠 Smart reminder: {reminder_minutes} min before")
         
         task_manager.add_task(task_text, due_time, reminder_minutes)
         
@@ -180,39 +207,6 @@ def handle_add_task(message):
         
         task_count = task_manager.get_task_count()
         bot.reply_to(message, f"Added task #{task_count}: {formatted_msg}")
-
-    """Handle /addtask command."""
-    if message.from_user.id != ALLOWED_USER_ID:
-        return
-
-    text = message.text[len("/addtask"):].strip()
-    if not text:
-        bot.reply_to(message, "Usage: /addtask <task description>")
-        return
-
-    # Parse reminder time first
-    text, user_reminder = parse_reminder_time(text)
-
-    # Then parse datetime
-    cleaned_text, due_time = parse_datetime_from_text(text)
-
-    # Smart reminder: use user's choice OR auto-calculate
-    if user_reminder == 60 and due_time:
-        reminder_minutes = calculate_smart_reminder(due_time)
-        print(f"🧠 Smart reminder: {reminder_minutes} min before")
-    else:
-        reminder_minutes = user_reminder
-
-    task_manager.add_task(cleaned_text or text, due_time, reminder_minutes)
-    
-    formatted_msg = format_task_added_message(
-        cleaned_text or text,
-        due_time,
-        reminder_minutes
-    )
-    
-    task_count = task_manager.get_task_count()
-    bot.reply_to(message, f"Added task #{task_count}: {formatted_msg}")
 
 
 @bot.message_handler(commands=['listtasks', 'tasks'])
@@ -444,12 +438,21 @@ def send_help(message):
         "• `/addtask <description>` - Add a task\n"
         "• `/listtasks` - Show all tasks\n"
         "• `/donetask <number>` - Complete a task\n\n"
+        "*Health Tracking:* 🆕\n"  # ⬅️ NEW SECTION
+        "• `/protein <amount> [food]` - Log protein\n"
+        "  Example: `/protein 50 chicken breast`\n"
+        "• `/workout <type> - <notes>` - Log workout\n"
+        "  Example: `/workout Push - chest day`\n"
+        "• `/stats` - Show today's progress\n"
+        "• `/history` - Show last 7 days\n\n"
         "*Stock Tracking:*\n"
         "• `/stock SYMBOL` - Check price (e.g., `/stock AAPL`)\n"
         "• `/alert SYMBOL PRICE [above|below]` - Set alert\n"
         "  Example: `/alert ETH-USD 2000 below`\n"
         "• `/alerts` - View active alerts\n"
         "• `/removealert SYMBOL` - Remove alert\n\n"
+        "*Database:*\n"  # ⬅️ NEW
+        "• `/dbstats` - Show database statistics\n\n"
         "*Other:*\n"
         "• `/menu` - Show menu keyboard\n"
         "• `/help` - Show this message\n\n"
@@ -458,6 +461,194 @@ def send_help(message):
     
     keyboard = create_main_menu_keyboard()
     bot.reply_to(message, help_text, parse_mode="Markdown", reply_markup=keyboard)
+
+@bot.message_handler(commands=['protein'])
+def handle_log_protein(message):
+    """Log protein intake. Usage: /protein 50 chicken breast"""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        parts = message.text.split(maxsplit=2)
+        if len(parts) < 2:
+            bot.reply_to(message, "Usage: /protein <amount> [food description]\nExample: /protein 50 chicken breast")
+            return
+        
+        amount = float(parts[1])
+        notes = parts[2] if len(parts) > 2 else None
+        
+        telegram_id = str(message.from_user.id)
+        tracking = db.log_protein(telegram_id, amount, notes)
+        
+        # Get user's target
+        user = db.get_user(telegram_id)
+        target = user.protein_target if user else 180
+        
+        percentage = int((tracking.protein_consumed / target) * 100)
+        
+        response = f"✅ Logged {amount}g protein"
+        if notes:
+            response += f" ({notes})"
+        response += f"\n\n📊 Today: {tracking.protein_consumed}g / {target}g ({percentage}%)"
+        
+        if tracking.protein_consumed >= target:
+            response += "\n🎉 Goal reached!"
+        
+        bot.reply_to(message, response)
+        
+    except ValueError:
+        bot.reply_to(message, "❌ Amount must be a number. Example: /protein 50")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+
+@bot.message_handler(commands=['workout'])
+def handle_log_workout(message):
+    """Log workout. Usage: /workout Push - chest and triceps"""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        text = message.text[len("/workout"):].strip()
+        if not text:
+            bot.reply_to(message, "Usage: /workout <workout type> - <description>\nExample: /workout Push - chest and triceps")
+            return
+        
+        # Parse workout type and notes
+        if " - " in text:
+            workout_type, notes = text.split(" - ", 1)
+        else:
+            workout_type = text
+            notes = None
+        
+        telegram_id = str(message.from_user.id)
+        session = db.get_session()
+        
+        from database.db_manager import HealthTracking
+        from datetime import datetime
+        
+        # Get or create today's tracking
+        today = datetime.utcnow().date()
+        tracking = session.query(HealthTracking)\
+            .filter(HealthTracking.telegram_id == telegram_id)\
+            .filter(HealthTracking.date >= today)\
+            .first()
+        
+        if tracking:
+            tracking.workout_completed = True
+            tracking.workout_type = workout_type.strip()
+            if notes:
+                tracking.notes = f"{tracking.notes or ''}\n{notes}".strip()
+        else:
+            tracking = HealthTracking(
+                telegram_id=telegram_id,
+                workout_completed=True,
+                workout_type=workout_type.strip(),
+                notes=notes
+            )
+            session.add(tracking)
+        
+        session.commit()
+        session.close()
+        
+        response = f"✅ Workout logged!\n\n💪 {workout_type}"
+        if notes:
+            response += f"\n📝 {notes}"
+        
+        bot.reply_to(message, response)
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+        import traceback
+        print(traceback.format_exc())
+
+
+@bot.message_handler(commands=['stats'])
+def handle_stats(message):
+    """Show today's progress."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        telegram_id = str(message.from_user.id)
+        user = db.get_user(telegram_id)
+        health = db.get_today_health(telegram_id)
+        
+        response = "📊 **Today's Progress**\n\n"
+        
+        # Protein
+        if health and health.protein_consumed > 0:
+            target = user.protein_target if user else 180
+            percentage = int((health.protein_consumed / target) * 100)
+            response += f"🥩 Protein: {health.protein_consumed}g / {target}g ({percentage}%)\n"
+            
+            if health.protein_consumed >= target:
+                response += "   ✅ Goal reached!\n"
+            else:
+                remaining = target - health.protein_consumed
+                response += f"   📍 {remaining}g remaining\n"
+        else:
+            response += "🥩 Protein: Not logged yet\n"
+        
+        # Workout
+        if health and health.workout_completed:
+            response += f"\n💪 Workout: ✅ {health.workout_type or 'Completed'}\n"
+            if health.notes:
+                response += f"   📝 {health.notes}\n"
+        else:
+            response += "\n💪 Workout: Not completed yet\n"
+        
+        bot.reply_to(message, response, parse_mode="Markdown")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
+
+
+@bot.message_handler(commands=['history'])
+def handle_history(message):
+    """Show last 7 days of tracking."""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        telegram_id = str(message.from_user.id)
+        session = db.get_session()
+        
+        from database.db_manager import HealthTracking
+        from datetime import datetime, timedelta
+        
+        # Get last 7 days
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        history = session.query(HealthTracking)\
+            .filter(HealthTracking.telegram_id == telegram_id)\
+            .filter(HealthTracking.date >= seven_days_ago)\
+            .order_by(HealthTracking.date.desc())\
+            .all()
+        
+        session.close()
+        
+        if not history:
+            bot.reply_to(message, "No tracking history yet. Start logging with /protein or /workout!")
+            return
+        
+        response = "📅 **Last 7 Days**\n\n"
+        
+        for day in history:
+            date_str = day.date.strftime('%a, %b %d')
+            response += f"**{date_str}**\n"
+            
+            if day.protein_consumed > 0:
+                response += f"  🥩 {day.protein_consumed}g protein\n"
+            
+            if day.workout_completed:
+                response += f"  💪 {day.workout_type or 'Workout'}\n"
+            
+            response += "\n"
+        
+        bot.reply_to(message, response, parse_mode="Markdown")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
 @bot.message_handler(func=lambda msg: True)
 def chat_ai(message):
@@ -491,6 +682,25 @@ def chat_ai(message):
 
     if text == "🔔 My Alerts":
         handle_list_alerts(message)
+        return
+    
+    # ⬇️ ADD THESE NEW HANDLERS
+    if text == "🥩 Log Protein":
+        msg = bot.reply_to(message, "How much protein? (e.g., 50 chicken breast)")
+        bot.register_next_step_handler(msg, process_protein_input)
+        return
+    
+    if text == "💪 Log Workout":
+        msg = bot.reply_to(message, "What workout? (e.g., Push - chest day)")
+        bot.register_next_step_handler(msg, process_workout_input)
+        return
+    
+    if text == "📊 My Stats":
+        handle_stats(message)
+        return
+    
+    if text == "📅 History":
+        handle_history(message)
         return
 
     # Call Claude API

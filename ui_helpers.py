@@ -8,18 +8,34 @@ from config import EST
 
 
 
-def create_main_menu_keyboard() -> types.ReplyKeyboardMarkup:
-    """Create the main menu keyboard."""
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn_tasks = types.KeyboardButton("📋 List tasks")
-    btn_add_task = types.KeyboardButton("➕ Add task")
-    btn_done_task = types.KeyboardButton("✅ Complete task")
-    btn_stock = types.KeyboardButton("📈 Check stock price")
-    btn_alerts = types.KeyboardButton("🔔 My Alerts")
-    keyboard.add(btn_tasks, btn_add_task)
-    keyboard.add(btn_done_task, btn_stock)
-    keyboard.add(btn_alerts) 
+def create_main_menu_keyboard():
+    """Create the main menu keyboard with buttons."""
+    keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    
+    # Task buttons
+    keyboard.add(
+        telebot.types.KeyboardButton("📋 List tasks"),
+        telebot.types.KeyboardButton("✅ Complete task")
+    )
+    
+    # Health tracking buttons ⬇️ NEW
+    keyboard.add(
+        telebot.types.KeyboardButton("🥩 Log Protein"),
+        telebot.types.KeyboardButton("💪 Log Workout")
+    )
+    
+    keyboard.add(
+        telebot.types.KeyboardButton("📊 My Stats"),
+        telebot.types.KeyboardButton("📅 History")
+    )
+    
+    # Stock alerts button
+    keyboard.add(
+        telebot.types.KeyboardButton("🔔 My Alerts")
+    )
+    
     return keyboard
+
 
 
 def create_task_completion_keyboard(tasks: List[Dict[str, Any]]) -> InlineKeyboardMarkup:

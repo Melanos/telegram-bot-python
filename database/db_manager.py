@@ -1,8 +1,12 @@
 import os
+import pytz 
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, Boolean, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
+
+
+EST = pytz.timezone('America/New_York')
 
 DB_PATH = "/data/assistant_memory.db"
 engine = create_engine(
@@ -24,7 +28,7 @@ class UserProfile(Base):
     telegram_id = Column(String, unique=True, index=True)
     name = Column(String)
     timezone = Column(String, default="America/New_York")
-    protein_target = Column(Integer, default=180)  # grams
+    protein_target = Column(Integer, default=200)  # grams
     calorie_target = Column(Integer, default=2500)
     workout_split = Column(String)  # e.g., "Push/Pull/Legs"
     preferred_wake_time = Column(String)  # e.g., "07:00"
