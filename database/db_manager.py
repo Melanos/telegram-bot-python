@@ -4,13 +4,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-# Get Railway's auto-generated DATABASE_URL
-DATABASE_URL = os.getenv("DATABASE_URL")
+DB_PATH = "/data/assistant_memory.db"
+engine = create_engine(
+    f"sqlite:///{DB_PATH}", 
+    connect_args={"check_same_thread": False}
+)
 
-# Create engine and session
-engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 
 # ==================== MODELS ====================
