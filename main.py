@@ -389,8 +389,9 @@ def handle_db_stats(message):
     try:
         session = db.get_session()
         
-        # Import models
-        from database.db_manager import UserProfile, Conversation, HealthTracking
+        # Import models and timezone
+        from database.db_manager import UserProfile, Conversation, HealthTracking, EST
+        import pytz
         
         # Count records in each table
         user_count = session.query(UserProfile).count()
@@ -411,7 +412,11 @@ def handle_db_stats(message):
             response += f"Name: {user.name}\n"
             response += f"Protein target: {user.protein_target}g\n"
             response += f"Calorie target: {user.calorie_target}\n"
-            response += f"Created: {user.created_at.strftime('%Y-%m-%d %H:%M')}\n"
+            
+            # Convert UTC to EST for display ⬇️
+            created_utc = user.created_at.replace(tzinfo=pytz.UTC)
+            created_est = created_utc.astimezone(EST)
+            response += f"Created: {created_est.strftime('%Y-%m-%d %I:%M %p %Z')}\n"
         
         # Get recent conversations
         conversations = db.get_recent_conversations(telegram_id, limit=3)
