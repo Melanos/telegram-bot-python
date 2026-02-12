@@ -478,20 +478,23 @@ def handle_log_protein(message):
         notes = parts[2] if len(parts) > 2 else None
         
         telegram_id = str(message.from_user.id)
-        tracking = db.log_protein(telegram_id, amount, notes)
+        
+        # Returns a dict now
+        result = db.log_protein(telegram_id, amount, notes)
+        total_protein = result['protein_consumed']
         
         # Get user's target
         user = db.get_user(telegram_id)
         target = user.protein_target if user else 180
         
-        percentage = int((tracking.protein_consumed / target) * 100)
+        percentage = int((total_protein / target) * 100)
         
         response = f"✅ Logged {amount}g protein"
         if notes:
             response += f" ({notes})"
-        response += f"\n\n📊 Today: {tracking.protein_consumed}g / {target}g ({percentage}%)"
+        response += f"\n\n📊 Today: {total_protein}g / {target}g ({percentage}%)"
         
-        if tracking.protein_consumed >= target:
+        if total_protein >= target:
             response += "\n🎉 Goal reached!"
         
         bot.reply_to(message, response)
@@ -500,6 +503,8 @@ def handle_log_protein(message):
         bot.reply_to(message, "❌ Amount must be a number. Example: /protein 50")
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {e}")
+        import traceback
+        print(traceback.format_exc())
 
 
 @bot.message_handler(commands=['workout'])

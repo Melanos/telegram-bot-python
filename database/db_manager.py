@@ -174,7 +174,7 @@ class DatabaseManager:
     # ========== Health Tracking Operations ==========
     
     def log_protein(self, telegram_id, amount, notes=None):
-        """Log protein intake. Returns total protein consumed today."""
+        """Log protein intake. Returns dict with total protein."""
         session = self.get_session()
         try:
             today = datetime.utcnow().date()
@@ -197,14 +197,14 @@ class DatabaseManager:
             
             session.commit()
             
-            # Return the value, not the object ⬇️
-            total_protein = tracking.protein_consumed
-            return total_protein
+            # Return a dict with the value we need
+            return {
+                'protein_consumed': tracking.protein_consumed,
+                'success': True
+            }
             
         finally:
             session.close()
-
-            
     
     def get_today_health(self, telegram_id):
         """Get today's health tracking data"""
