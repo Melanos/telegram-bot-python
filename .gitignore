@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .venv/
+
+# .env (add this to .gitignore!)
+TEST_TELEGRAM_ID=5244589395
+MY_NAME="Iggy Melano"

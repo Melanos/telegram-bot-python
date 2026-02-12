@@ -5,7 +5,8 @@ import sys
 import telebot
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
-
+from database import init_database
+from database.db_helpers import ensure_user_profile, log_conversation
 
 # Import custom modules
 from config import TELEGRAM_BOT_TOKEN, ALLOWED_USER_ID, EST
@@ -36,7 +37,16 @@ except Exception as e:
     print("The application will hang to prevent a restart loop.")
     while True:
         time.sleep(3600)
-        
+
+# ⬇️ ADD DATABASE INITIALIZATION HERE
+try:
+    db = init_database()
+    print("✅ Database connected and tables created!")
+except Exception as e:
+    print(f"⚠️ Database initialization failed: {e}")
+    print("Bot will continue without database features.")
+    db = None
+
 # Initialize task manager
 task_manager = TaskManager()
 
@@ -98,17 +108,21 @@ def send_welcome(message):
     if message.from_user.id != ALLOWED_USER_ID:
         return
     
+    ensure_user_profile(db, message)
+    
     keyboard = create_main_menu_keyboard()
-    bot.reply_to(
-        message,
+    response = (
         "👋 Hello! I'm your personal AI assistant!\n\n"
         "I can help you with:\n"
         "✅ Task reminders with natural language\n"
         "📈 Stock price tracking and alerts\n\n"
-        "Just chat naturally, or type `/help` to see all commands!",
-        reply_markup=keyboard
+        "Just chat naturally, or type `/help` to see all commands!"
     )
+    bot.reply_to(message, response, reply_markup=keyboard)
+    
 
+    log_conversation(db, message, response)
+    
 
 
 @bot.message_handler(commands=['stock'])
@@ -396,6 +410,8 @@ def chat_ai(message):
     if message.from_user.id != ALLOWED_USER_ID:
         return
 
+    ensure_user_profile(db, message)
+
     text_raw = message.text or ""
     text = text_raw.strip()
 
@@ -498,6 +514,7 @@ def chat_ai(message):
         final_reply = "\n\n".join(reply_messages)
         bot.reply_to(message, final_reply)
 
+        log_conversation(db, message, final_reply)
 
 # ============================================================================
 # MAIN
