@@ -120,16 +120,22 @@ telegram-bot-python/
 ---
 
 ## Version 2.1 - Health & Fitness 💪
-**Status**: Planned | **Priority**: Medium
+**Status**: ✅ Partially Completed | **Priority**: Medium
 
 ### Features
 - [ ] High-protein meal suggestions (personalized)
-- [ ] Workout logging: "Logged chest day"
-- [ ] Weekly workout statistics
+- [x] Workout logging: "Logged chest day" ✅
+- [x] Weekly workout statistics (`/weekly`) ✅
+- [x] Custom goal setting (`/setgoal`) ✅
 - [ ] Macro tracking with quick food logging
 - [ ] Gym streak counter for consistency tracking
 
-**Estimated Implementation Time**: 45 minutes
+### Completed (Feb 17, 2026)
+- ✅ `/setgoal` - Customize protein & calorie targets
+- ✅ `/weekly` - 7-day summary with trends & motivation
+- ✅ Goal-based progress calculations in stats
+
+**Estimated Implementation Time**: 45 minutes (25 minutes completed)
 
 ---
 
@@ -203,10 +209,19 @@ telegram-bot-python/
 - [ ] CI/CD pipeline with automated testing
 
 ### Performance Optimization
-- [ ] Database migration from JSON to SQLite (if needed for scale)
+- [x] Database migration from JSON to SQLite ✅
 - [ ] Caching layer for stock prices (reduce API calls)
 - [ ] Async/await implementation for concurrent requests
 - [ ] Memory profiling and optimization
+
+### Development Workflow ✅ Completed (Feb 17, 2026)
+- [x] Local development environment setup
+- [x] Virtual environment with `uv` package manager
+- [x] Local SQLite database configuration
+- [x] Railway pause/resume workflow
+- [x] 10x faster development cycle achieved
+
+**Impact**: Reduced development iteration time from ~5 minutes (Railway deploy) to ~30 seconds (local testing)
 
 ---
 

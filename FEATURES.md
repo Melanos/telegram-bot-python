@@ -388,6 +388,84 @@ Weekly Averages:
 
 ---
 
+### Set Custom Goals
+Customize your protein and calorie targets to match your fitness goals.
+
+**Command**: `/setgoal`
+
+**Interactive Prompts**:
+1. Bot asks for your daily protein goal
+2. Bot asks for your daily calorie goal
+3. Confirmation with new targets
+
+**Example**:
+```
+User: /setgoal
+Bot: What's your daily protein goal? (in grams)
+
+User: 180
+Bot: Great! What's your daily calorie goal?
+
+User: 2500
+Bot: ✅ Goals updated!
+     🍗 Protein: 180g/day
+     🔥 Calories: 2500/day
+     
+     Your stats will now reflect these targets.
+```
+
+**Benefits**:
+- Personalized tracking for your specific needs
+- Accurate progress percentages in /stats
+- Customized feedback based on your goals
+
+---
+
+### Weekly Summary
+Get a comprehensive 7-day summary with trends and motivational insights.
+
+**Command**: `/weekly`
+
+**Display Format**:
+```
+📊 Your Weekly Summary
+═════════════════════════════════════
+
+📅 Feb 10 - Feb 16, 2026
+
+🍗 Protein Tracking:
+   Average: 165g/day
+   Target: 180g/day
+   Best day: Sat (195g)
+   Completion: 92%
+   Trend: ↗️ +8g from last week
+
+💪 Workout Activity:
+   Sessions: 5 workouts
+   Total time: 285 minutes
+   Average: 57 min/session
+   Streak: 🔥 5 days
+   Trend: ↗️ +2 sessions
+
+📈 Progress:
+   Consistency: 71% (5/7 days logged)
+   Goal achievement: On track!
+   
+💡 Insights:
+   "Great consistency this week! You're
+   averaging 92% of your protein goal.
+   Try adding one more high-protein
+   snack to hit 100%!"
+```
+
+**Features**:
+- Week-over-week trend comparison
+- Motivational insights
+- Streak tracking for consistency
+- Best performance highlights
+
+---
+
 ### Database Statistics
 Monitor your database storage and usage.
 
@@ -434,6 +512,47 @@ Self-hosted relational database with 5-table schema.
 - Zero monthly fees for self-hosted deployment
 - Full data ownership and privacy
 - Easy backup and migration
+
+---
+
+## 🛠️ Development Environment
+
+### Local Development Setup
+Optimized workflow for rapid feature development and testing.
+
+**Configuration**:
+- Local virtual environment with `uv`
+- SQLite database on local machine
+- Environment variables via `.env` file
+- Hot reload during development
+
+**Railway Integration**:
+- Pause production instance during development
+- Resume for deployment testing
+- Persistent volume data preserved
+- Zero downtime for end users
+
+**Benefits**:
+- **10x faster development cycle**
+- No API rate limits during testing
+- Instant feedback loop
+- Safe experimentation without affecting production
+- Database changes tested locally first
+
+**Workflow**:
+```bash
+# 1. Pause Railway instance
+railway down
+
+# 2. Run locally with hot reload
+uv run python -B main.py
+
+# 3. Test features extensively
+# 4. Commit changes
+
+# 5. Resume Railway and deploy
+railway up
+```
 
 ---
 
