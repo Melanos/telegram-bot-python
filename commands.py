@@ -8,9 +8,6 @@ from telebot.types import BotCommand
 def register_commands(bot: TeleBot):
     """
     Register bot commands with Telegram.
-
-    Args:
-        bot (TeleBot): The TeleBot instance.
     """
     commands = [
         BotCommand("start", "Start the bot"),
@@ -22,6 +19,9 @@ def register_commands(bot: TeleBot):
         BotCommand("alert", "Set price alert (e.g., /alert IONQ 25 above)"),
         BotCommand("alerts", "View your active alerts"),
         BotCommand("removealert", "Remove an alert (e.g., /removealert IONQ)"),
+        BotCommand("setgoal", "Set protein/calorie goals"),  # NEW
+        BotCommand("weekly", "View 7-day health summary"),    # NEW
     ]
     
     bot.set_my_commands(commands)
+

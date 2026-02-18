@@ -8,7 +8,12 @@ from datetime import datetime
 
 EST = pytz.timezone('America/New_York')
 
-DB_PATH = "/data/assistant_memory.db"
+# Detect if running on Railway or locally
+if os.getenv('RAILWAY_ENVIRONMENT'):
+    DB_PATH = "/data/assistant_memory.db"  # Production (Railway)
+else:
+    DB_PATH = "./data/assistant_memory.db"  # Local development
+
 engine = create_engine(
     f"sqlite:///{DB_PATH}", 
     connect_args={"check_same_thread": False}

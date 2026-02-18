@@ -454,13 +454,16 @@ def send_help(message):
         "• `/addtask <description>` - Add a task\n"
         "• `/listtasks` - Show all tasks\n"
         "• `/donetask <number>` - Complete a task\n\n"
-        "*Health Tracking:* 🆕\n"  # ⬅️ NEW SECTION
+        "*Health Tracking:* 🆕\n" 
         "• `/protein <amount> [food]` - Log protein\n"
         "  Example: `/protein 50 chicken breast`\n"
         "• `/workout <type> - <notes>` - Log workout\n"
         "  Example: `/workout Push - chest day`\n"
         "• `/stats` - Show today's progress\n"
         "• `/history` - Show last 7 days\n\n"
+        "• `/setgoal <type> <amount>` - Set goals\n"
+        "  Example: `/setgoal protein 180`\n"
+        "• `/weekly` - View 7-day summary\n"  
         "• `/resettoday` - Reset today's data (testing)\n\n"
         "*Stock Tracking:*\n"
         "• `/stock SYMBOL` - Check price (e.g., `/stock AAPL`)\n"
@@ -468,7 +471,7 @@ def send_help(message):
         "  Example: `/alert ETH-USD 2000 below`\n"
         "• `/alerts` - View active alerts\n"
         "• `/removealert SYMBOL` - Remove alert\n\n"
-        "*Database:*\n"  # ⬅️ NEW
+        "*Database:*\n" 
         "• `/dbstats` - Show database statistics\n\n"
         "*Other:*\n"
         "• `/menu` - Show menu keyboard\n"
@@ -704,6 +707,139 @@ def handle_reset_today(message):
         bot.reply_to(message, f"❌ Error: {e}")
         import traceback
         print(traceback.format_exc())
+
+@bot.message_handler(commands=['setgoal'])
+def set_goal_command(message):
+    """Set custom protein or calorie goals"""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        telegram_id = str(message.from_user.id)
+        args = message.text.split()[1:]  # Get arguments after /setgoal
+        
+        if len(args) < 2:
+            bot.reply_to(message, 
+                "❌ Usage: /setgoal <type> <amount>\n\n"
+                "Examples:\n"
+                "• /setgoal protein 180\n"
+                "• /setgoal calories 2500")
+            return
+        
+        goal_type = args[0].lower()
+        amount = int(args[1])
+        
+        if goal_type not in ['protein', 'calories']:
+            bot.reply_to(message, "❌ Goal type must be 'protein' or 'calories'")
+            return
+        
+        # Get user from database
+        user = db.get_user(telegram_id)
+        if not user:
+            bot.reply_to(message, "❌ User profile not found. Try /start first.")
+            return
+        
+        session = db.get_session()
+        
+        if goal_type == 'protein':
+            user.protein_target = amount
+            bot.reply_to(message, f"✅ Daily protein goal updated to {amount}g! 🥩")
+        else:
+            user.calorie_target = amount
+            bot.reply_to(message, f"✅ Daily calorie goal updated to {amount} kcal! 🔥")
+        
+        session.commit()
+        session.close()
+        
+    except ValueError:
+        bot.reply_to(message, "❌ Amount must be a number!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+
+@bot.message_handler(commands=['weekly'])
+def weekly_stats_command(message):
+    """Show weekly health tracking summary"""
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    try:
+        telegram_id = str(message.from_user.id)
+        session = db.get_session()
+        
+        from database.db_manager import HealthTracking
+        from datetime import datetime, timedelta
+        from collections import Counter
+        
+        # Get last 7 days
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        
+        weekly_data = session.query(HealthTracking)\
+            .filter(HealthTracking.telegram_id == telegram_id)\
+            .filter(HealthTracking.date >= seven_days_ago.date())\
+            .order_by(HealthTracking.date.desc())\
+            .all()
+        
+        if not weekly_data:
+            bot.reply_to(message, "📊 No data for the past 7 days. Start logging with /protein and /workout!")
+            session.close()
+            return
+        
+        # Calculate stats
+        total_days = len(set(record.date for record in weekly_data))
+        total_protein = sum(record.protein_consumed or 0 for record in weekly_data)
+        avg_protein = total_protein / total_days if total_days > 0 else 0
+        
+        # Workout stats
+        workout_records = [r for r in weekly_data if r.workout_completed]
+        workout_days = len(workout_records)
+        workout_types = [r.workout_type for r in workout_records if r.workout_type]
+        
+        # Find best day
+        best_day_record = max(weekly_data, key=lambda x: x.protein_consumed or 0)
+        best_protein = best_day_record.protein_consumed or 0
+        best_date = best_day_record.date.strftime('%b %d')
+        
+        # Get user goal
+        user = db.get_user(telegram_id)
+        protein_goal = user.protein_target if user else 180
+        achievement_rate = (avg_protein / protein_goal * 100) if protein_goal > 0 else 0
+        
+        # Build response
+        start_date = (datetime.utcnow() - timedelta(days=6)).strftime('%b %d')
+        end_date = datetime.utcnow().strftime('%b %d')
+        
+        response = f"📊 **Weekly Summary** ({start_date} - {end_date})\n\n"
+        response += f"🥩 **Protein Tracking:**\n"
+        response += f"• Average: {avg_protein:.0f}g/day\n"
+        response += f"• Best day: {best_protein}g ({best_date})\n"
+        response += f"• Days logged: {total_days}/7\n"
+        response += f"• Target achievement: {achievement_rate:.0f}%\n\n"
+        
+        response += f"💪 **Workouts:**\n"
+        response += f"• Total sessions: {workout_days}\n"
+        if workout_types:
+            type_counts = Counter(workout_types)
+            response += f"• Types: {', '.join([f'{t} ({c})' for t, c in type_counts.most_common()])}\n"
+        response += f"• Consistency: {(workout_days/7*100):.0f}%\n\n"
+        
+        # Motivational message
+        if achievement_rate >= 90:
+            response += "🔥 Outstanding work! Keep crushing it!"
+        elif achievement_rate >= 70:
+            response += "💪 Great progress! You're on track!"
+        else:
+            response += "📈 Room to improve! You got this!"
+        
+        bot.reply_to(message, response, parse_mode='Markdown')
+        session.close()
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error generating weekly stats: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+
 
 @bot.message_handler(func=lambda msg: True)
 def chat_ai(message):
