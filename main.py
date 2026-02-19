@@ -3,6 +3,7 @@ import time
 import signal
 import sys
 import telebot
+import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from database import init_database
@@ -401,7 +402,7 @@ def handle_db_stats(message):
         
         # Import models and timezone
         from database.db_manager import UserProfile, Conversation, HealthTracking, EST
-        import pytz
+
         
         # Count records in each table
         user_count = session.query(UserProfile).count()
@@ -448,35 +449,48 @@ def send_help(message):
         return
     
     help_text = (
-        "🤖 *Available Commands*\n\n"
-        "*Task Management:*\n"
-        "• Just chat naturally - I understand!\n"
+        "🤖 *Your Personal AI Assistant*\n\n"
+        
+        "💬 *Natural Language (Just Talk!)*\n"
+        "• 'I had 60g protein from eggs'\n"
+        "• 'Bench press 245 x6 felt easy'\n"
+        "• 'Finished push day'\n"
+        "• 'Remind me to call mom tomorrow at 6pm'\n"
+        "• 'How am I doing today?'\n\n"
+        
+        "📋 *Task Management:*\n"
         "• `/addtask <description>` - Add a task\n"
         "• `/listtasks` - Show all tasks\n"
         "• `/donetask <number>` - Complete a task\n\n"
-        "*Health Tracking:* 🆕\n" 
+        
+        "🏋️ *Health Tracking:*\n"
         "• `/protein <amount> [food]` - Log protein\n"
         "  Example: `/protein 50 chicken breast`\n"
         "• `/workout <type> - <notes>` - Log workout\n"
         "  Example: `/workout Push - chest day`\n"
         "• `/stats` - Show today's progress\n"
-        "• `/history` - Show last 7 days\n\n"
-        "• `/setgoal <type> <amount>` - Set goals\n"
-        "  Example: `/setgoal protein 180`\n"
-        "• `/weekly` - View 7-day summary\n"  
-        "• `/resettoday` - Reset today's data (testing)\n\n"
-        "*Stock Tracking:*\n"
-        "• `/stock SYMBOL` - Check price (e.g., `/stock AAPL`)\n"
+        "• `/history` - Show last 7 days\n"
+        "• `/weekly` - Show 7-day summary & trends\n"
+        "• `/setgoal protein 180` - Set protein goal\n"
+        "• `/setgoal calories 2500` - Set calorie goal\n"
+        "• `/resettoday` - Reset today's data\n\n"
+        
+        "📈 *Stock Tracking:*\n"
+        "• `/stock SYMBOL` - Check price\n"
+        "  Example: `/stock AAPL`\n"
         "• `/alert SYMBOL PRICE [above|below]` - Set alert\n"
         "  Example: `/alert ETH-USD 2000 below`\n"
         "• `/alerts` - View active alerts\n"
         "• `/removealert SYMBOL` - Remove alert\n\n"
-        "*Database:*\n" 
+        
+        "🗄️ *Database:*\n"
         "• `/dbstats` - Show database statistics\n\n"
-        "*Other:*\n"
+        
+        "⚙️ *Other:*\n"
         "• `/menu` - Show menu keyboard\n"
         "• `/help` - Show this message\n\n"
-        "💡 *Tip:* You can also use the buttons below! 👇"
+        
+        "💡 *Tip:* Skip the commands — just talk naturally and I'll figure it out! 🧠"
     )
     
     keyboard = create_main_menu_keyboard()
@@ -618,10 +632,19 @@ def handle_stats(message):
         # Workout
         if health and health.workout_completed:
             response += f"\n💪 Workout: ✅ {health.workout_type or 'Completed'}\n"
-            if health.notes:
-                response += f"   📝 {health.notes}\n"
+            
+            # Show logged exercises if available
+            if health.exercises:
+                for ex in health.exercises:
+                    line = f"   • {ex.get('name', 'Exercise')}"
+                    if ex.get('weight'):
+                        line += f" – {ex['weight']}lbs x{ex.get('reps', '?')}"
+                    if ex.get('notes'):
+                        line += f" ({ex['notes']})"
+                    response += line + "\n"
         else:
             response += "\n💪 Workout: Not completed yet\n"
+
         
         bot.reply_to(message, response, parse_mode="Markdown")
         
@@ -659,7 +682,11 @@ def handle_history(message):
         response = "📅 **Last 7 Days**\n\n"
         
         for day in history:
-            date_str = day.date.strftime('%a, %b %d')
+            import pytz
+            # Convert UTC stored date to EST for display
+            utc_date = day.date.replace(tzinfo=pytz.UTC)
+            est_date = utc_date.astimezone(EST)
+            date_str = est_date.strftime('%a, %b %d')
             response += f"**{date_str}**\n"
             
             if day.protein_consumed > 0:
@@ -799,7 +826,8 @@ def weekly_stats_command(message):
         # Find best day
         best_day_record = max(weekly_data, key=lambda x: x.protein_consumed or 0)
         best_protein = best_day_record.protein_consumed or 0
-        best_date = best_day_record.date.strftime('%b %d')
+        best_utc = best_day_record.date.replace(tzinfo=pytz.UTC)
+        best_date = best_utc.astimezone(EST).strftime('%b %d')
         
         # Get user goal
         user = db.get_user(telegram_id)
@@ -837,6 +865,109 @@ def weekly_stats_command(message):
         
     except Exception as e:
         bot.reply_to(message, f"❌ Error generating weekly stats: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+
+def handle_ai_workout_log(message, item):
+    """Handle AI-detected workout log from natural language."""
+    try:
+        telegram_id = str(message.from_user.id)
+        workout_type = item.get("workout_type", "General")
+        notes = item.get("notes", "")
+        exercises = item.get("exercises", [])
+        reply = item.get("reply", "Workout logged! 💪")
+
+        session = db.get_session()
+        from database.db_manager import HealthTracking
+        from datetime import datetime
+
+        today = datetime.utcnow().date()
+        tracking = session.query(HealthTracking)\
+            .filter(HealthTracking.telegram_id == telegram_id)\
+            .filter(HealthTracking.date >= today)\
+            .first()
+
+        if tracking:
+            tracking.workout_completed = True
+            tracking.workout_type = workout_type
+            if notes:
+                tracking.notes = f"{tracking.notes or ''}\n{notes}".strip()
+            if exercises:
+                existing = tracking.exercises or []
+                existing.extend(exercises)
+                tracking.exercises = existing
+        else:
+            tracking = HealthTracking(
+                telegram_id=telegram_id,
+                workout_completed=True,
+                workout_type=workout_type,
+                notes=notes,
+                exercises=exercises if exercises else []
+            )
+            session.add(tracking)
+
+        session.commit()
+
+        # Build detailed response
+        response = reply
+        if exercises:
+            response += "\n\n📋 **Logged exercises:**"
+            for ex in exercises:
+                line = f"\n• {ex.get('name', 'Exercise')}"
+                if ex.get('weight'):
+                    line += f" – {ex['weight']}lbs x{ex.get('reps', '?')}"
+                if ex.get('notes'):
+                    line += f" _(_{ex['notes']}_)_"
+                response += line
+
+            # Progression check
+            easy_notes = [e for e in exercises if e.get('notes') and 
+                         any(word in e['notes'].lower() for word in ['easy', 'light', 'could do more', 'too light'])]
+            if easy_notes:
+                response += "\n\n💡 **Progression tip:** One or more exercises felt easy. Consider increasing weight next session (+5 lbs upper / +10 lbs lower)."
+
+        session.close()
+        bot.reply_to(message, response, parse_mode="Markdown")
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error logging workout: {e}")
+        import traceback
+        print(traceback.format_exc())
+
+def handle_ai_protein_log(message, item):
+    """Handle AI-detected protein log from natural language."""
+    try:
+        telegram_id = str(message.from_user.id)
+        amount = float(item.get("amount", 0))
+        food = item.get("food", "")
+        reply = item.get("reply", "")
+
+        if amount <= 0:
+            bot.reply_to(message, "❌ Couldn't detect protein amount. Try: 'I had 60g protein from eggs'")
+            return
+
+        result = db.log_protein(telegram_id, amount, food)
+        total_protein = result['protein_consumed']
+
+        user = db.get_user(telegram_id)
+        target = user.protein_target if user else 180
+        percentage = int((total_protein / target) * 100)
+
+        response = f"✅ Logged {amount}g protein"
+        if food:
+            response += f" from {food}"
+        response += f"\n\n📊 Today: {total_protein}g / {target}g ({percentage}%)"
+
+        if total_protein >= target:
+            response += "\n🎉 Daily goal reached!"
+        else:
+            remaining = target - total_protein
+            response += f"\n📍 {remaining}g remaining"
+
+        bot.reply_to(message, response)
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error logging protein: {e}")
         import traceback
         print(traceback.format_exc())
 
@@ -892,6 +1023,14 @@ def chat_ai(message):
     
     if text == "📅 History":
         handle_history(message)
+        return
+
+    # Natural language stats triggers
+    if any(phrase in text.lower() for phrase in [
+        "how am i doing", "my stats", "my progress", 
+        "how's my protein", "did i hit my goal"
+    ]):
+        handle_stats(message)
         return
 
     # Call Claude API
@@ -962,6 +1101,19 @@ def chat_ai(message):
                 else:
                     reply_messages.append(reply_text or "I couldn't find a matching task to remove 🤔")
         
+        elif reply_type == "log_protein":
+            handle_ai_protein_log(message, item)
+            
+
+        elif reply_type == "log_workout":
+            handle_ai_workout_log(message, item)
+            
+
+        elif reply_type == "health_query":
+            # Route to existing /stats handler
+            handle_stats(message)
+            return
+
         else:  # "chat"
             reply_messages.append(reply_text or "Got it 👍")
     

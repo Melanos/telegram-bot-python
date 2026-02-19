@@ -2,6 +2,82 @@
 
 Complete overview of implemented features in the Telegram Bot.
 
+## 🧠 AI-Powered Natural Language Interface
+
+### Intent Recognition & Tool Calling
+The bot uses Claude AI with tool calling to understand natural language and execute appropriate actions.
+
+**Supported Intents**:
+- **Health Logging**: Protein and workout tracking
+- **Task Management**: Creating reminders and tasks
+- **Progress Queries**: Checking daily stats and trends
+- **General Chat**: Conversational responses
+
+**Examples**:
+```
+"I had 60g protein from eggs" → Logs 60g protein
+"Bench press 245 x6 felt easy" → Logs workout + notes progression
+"How am I doing today?" → Returns real stats from database
+"Remind me to call mom tomorrow at 6pm" → Creates task
+```
+
+**How it works**:
+1. Claude receives message with tool schema (log_protein, log_workout, get_stats, etc.)
+2. AI determines intent and extracts parameters
+3. Tool calls are executed against database
+4. Confirmation message returned with summary
+
+---
+
+### Multi-Exercise Parsing
+Log multiple exercises in a single message.
+
+**Example**:
+```
+User: "Did push day: bench 245x6, incline 185x8, tricep pushdowns"
+Bot: ✅ Logged:
+     - Bench press: 245 lbs × 6 reps
+     - Incline press: 185 lbs × 8 reps  
+     - Tricep pushdowns
+```
+
+---
+
+### Progression Detection
+AI detects when you're ready to increase weight based on performance cues.
+
+**Trigger Phrases**:
+- "felt easy"
+- "could do more"
+- "light weight"
+- Consistent reps at same weight over multiple sessions
+
+**Response Example**:
+```
+🎯 Progression Suggestion:
+You've benched 245 lbs for 6 reps the last 3 sessions.
+Next time try 250-255 lbs for 5-6 reps!
+```
+
+---
+
+### Context-Aware Health Queries
+Ask about your progress in natural language.
+
+**Examples**:
+```
+"How am I doing today?" → Daily protein/workout summary
+"Did I hit my protein goal?" → Progress vs target
+"What workouts did I log this week?" → Weekly history
+```
+
+**Response includes**:
+- Real-time stats from database
+- Progress toward goals
+- Trends and insights
+
+---
+
 ## 📋 Core Task Management
 
 ### Natural Language Task Creation

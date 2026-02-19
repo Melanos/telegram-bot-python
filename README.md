@@ -28,10 +28,16 @@ A feature-rich Telegram bot with task management, stock alerts, and health track
 - Directional triggers (above/below price targets)
 
 ### 🤖 AI-Powered Intelligence
-- Claude AI for natural language understanding
-- Intent recognition (task creation, task completion, general chat)
-- Context-aware conversations with chat history
-- Smart timeline parsing ("tomorrow", "in 5 minutes", etc.)
+- **Natural Language Understanding** - Talk naturally without rigid commands
+  - "I had 60g protein from eggs" → Logs protein
+  - "Bench press 245 x6 felt easy" → Logs workout + progression tracking
+  - "How am I doing today?" → Returns real stats from database
+  - "Remind me to call mom tomorrow at 6pm" → Creates task
+- **Tool Calling with Claude AI** - Intent recognition and automatic action execution
+- **Multi-Exercise Parsing** - Log multiple exercises in one message
+- **Progression Intelligence** - Detects when to increase weight based on performance
+- **Context-Aware Conversations** - Remembers chat history for better understanding
+- **Smart Timeline Parsing** - Understands "tomorrow", "in 5 minutes", day names, etc.
 
 ### 🗄️ Database Infrastructure
 - SQLite for self-hosted deployment (85% cost reduction vs PostgreSQL)
@@ -101,9 +107,12 @@ Remember to set the `TELEGRAM_BOT_TOKEN` and `ANTHROPIC_API_KEY` environment var
 
 Open Telegram, start a chat with your bot, and try:
 - `/start` - See the welcome message
+- `"I had 60g protein from eggs"` - Log protein naturally
+- `"Bench press 245 x6 felt easy"` - Log workout with progression tracking
+- `"How am I doing today?"` - Get your real stats
 - `"Remind me to call John tomorrow at 2pm"` - Create a task naturally
 - `/stock AAPL` - Check stock prices
-- `/protein 150 eggs for breakfast` - Log protein intake
+- `/history` - View 7-day health trends
 
 ## Learn More
 

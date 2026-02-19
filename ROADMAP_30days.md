@@ -26,35 +26,39 @@ Goal: Build a personal AI assistant that helps with health, learning, content, s
 
 ---
 
-## Week 2 – Natural Language Health & Gym Intelligence
+## Week 2 – Natural Language Health & Gym Intelligence ✅ COMPLETE!
 
-### 4. AI Intent + Tool Calling for Health
-- [ ] Define intents and tool schema for:
-  - [ ] Protein logging (amount, food, optional time).
-  - [ ] Workout logging (type, notes, exercise details like weight/reps).
-  - [ ] Progress queries (“How am I doing today?”).
-- [ ] Extend Claude system prompt with function definitions (e.g., `log_protein`, `log_workout`).
-- [ ] Update `chat_ai` pipeline to:
-  - [ ] Call Claude with tool schema.
-  - [ ] Execute returned tool calls to log health data.
-  - [ ] Return a concise confirmation + summary message.
+### 4. AI Intent + Tool Calling for Health ✅
+- [x] Define intents and tool schema for:
+  - [x] Protein logging (amount, food, optional time).
+  - [x] Workout logging (type, notes, exercise details like weight/reps).
+  - [x] Progress queries ("How am I doing today?").
+- [x] Extend Claude system prompt with function definitions (e.g., `log_protein`, `log_workout`).
+- [x] Update `chat_ai` pipeline to:
+  - [x] Call Claude with tool schema.
+  - [x] Execute returned tool calls to log health data.
+  - [x] Return a concise confirmation + summary message.
 
-### 5. Workout Progression Intelligence
-- [ ] Extend DB to store per-exercise history (exercise name, weight, reps, notes, date).
-- [ ] Implement simple progression logic:
-  - [ ] Detect repeated sessions at same weight with sufficient reps or comments like “felt easy”.
-  - [ ] Suggest weight increases (e.g., +5 lb upper body, +10 lb lower body) when criteria met.
-- [ ] Add responses such as:
-  - [ ] “You benched 245 x6 for 3 weeks; next time try 250–255 for 5–6 reps.”
+### 5. Workout Progression Intelligence ✅
+- [x] Extend DB to store per-exercise history (exercise name, weight, reps, notes, date).
+- [x] Implement simple progression logic:
+  - [x] Detect repeated sessions at same weight with sufficient reps or comments like "felt easy".
+  - [x] Suggest weight increases (e.g., +5 lb upper body, +10 lb lower body) when criteria met.
+- [x] Add responses such as:
+  - [x] "You benched 245 x6 for 3 weeks; next time try 250–255 for 5–6 reps."
 
-### 6. Natural Conversation UX for Gym & Protein
-- [ ] Handle free-form messages like:
-  - [ ] “Bench press 245 x6 felt easy today.”
-  - [ ] “Did pull day with heavy rows and curls.”
-  - [ ] “Had 60g protein from tuna and rice.”
-- [ ] Confirm logs with short summaries:
-  - [ ] “Logged: Bench press – 245 x6, note: ‘felt easy’.”
-  - [ ] “Logged: 60g protein (tuna and rice).”
+### 6. Natural Conversation UX for Gym & Protein ✅
+- [x] Handle free-form messages like:
+  - [x] "Bench press 245 x6 felt easy today."
+  - [x] "Did pull day with heavy rows and curls."
+  - [x] "Had 60g protein from tuna and rice."
+- [x] Confirm logs with short summaries:
+  - [x] "Logged: Bench press – 245 x6, note: 'felt easy'."
+  - [x] "Logged: 60g protein (tuna and rice)."
+
+### 7. Quality-of-Life Fixes ✅
+- [x] Fixed timezone display for `/history` and `/weekly` commands
+- [x] Updated `/help` command with natural language examples
 
 ---
 

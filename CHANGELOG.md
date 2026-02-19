@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-18
+
+### Added
+- **Week 2 Complete: AI Intent + Tool Calling for Health** 🧠
+  - Natural language protein logging ("I had 60g protein from eggs")
+  - Natural language workout logging ("Bench press 245 x6 felt easy")
+  - Multi-exercise parsing in single messages
+  - Progression detection with sentiment analysis ("felt easy" triggers suggestions)
+  - "How am I doing today?" queries return real stats from database
+  - AI-powered intent recognition for health tracking
+  
+- **Enhanced Health Intelligence** 🏋️
+  - Workout progression tracking with weight/reps/notes per exercise
+  - Smart progression suggestions based on performance patterns
+  - Context-aware health queries with real-time stat retrieval
+  - Multi-exercise session support in natural language
+  
+### Fixed
+- **Timezone corrections** for `/history` and `/weekly` commands
+  - Proper EST timezone handling for historical data display
+  - Accurate date grouping for weekly summaries
+  
+### Changed
+- **Updated `/help` command** with expanded natural language examples
+  - Added "How am I doing today?" example
+  - Clarified natural conversation capabilities
+  - Improved formatting and categorization
+
+---
+
 ## [2.0.0] - 2026-02-11
 
 ### Added

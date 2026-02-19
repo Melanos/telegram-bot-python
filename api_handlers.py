@@ -58,34 +58,76 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
     current_time_str = now.strftime("%Y-%m-%d %H:%M:%S %Z")
     
     system_prompt = (
-        f"You're Igor's Telegram task assistant. Return valid JSON.\n"
+        f"You are Igor's personal AI assistant on Telegram. Return valid JSON only.\n"
         f"Current time: {current_time_str}\n\n"
-        "IMPORTANT: Parse ALL datetime info and return ISO format!\n\n"
-        "For SINGLE task: Return one object\n"
-        "For MULTIPLE tasks: Return array of objects\n\n"
-        "Task Structure:\n"
-        '• add_task: {"type":"add_task","task":"clean description","due":"ISO datetime or null","reminder_minutes":60,"reply":"confirmation"}\n'
-        '• list_tasks: {"type":"list_tasks","reply":"sentence"}\n'
-        '• remove_task: {"type":"remove_task","task":"description","reply":"confirmation"}\n'
-        '• chat: {"type":"chat","reply":"answer"}\n\n'
-        "DateTime Parsing Rules:\n"
+        
+        "RESPONSE TYPES:\n\n"
+        
+        "1. TASK MANAGEMENT:\n"
+        '• add_task:    {"type":"add_task","task":"description","due":"ISO datetime or null","reminder_minutes":60,"reply":"confirmation"}\n'
+        '• list_tasks:  {"type":"list_tasks","reply":"sentence"}\n'
+        '• remove_task: {"type":"remove_task","task":"description","reply":"confirmation"}\n\n'
+        
+        "2. HEALTH & FITNESS:\n"
+        '• log_protein: {"type":"log_protein","amount":60,"food":"chicken breast","reply":"confirmation"}\n'
+        '• log_workout: {"type":"log_workout","workout_type":"Push","notes":"chest and triceps","exercises":[{"name":"Bench Press","weight":245,"reps":6,"sets":1,"notes":"felt easy"}],"reply":"confirmation"}\n'
+        '• health_query:{"type":"health_query","reply":"answer based on context"}\n\n'
+        
+        "3. GENERAL:\n"
+        '• chat:        {"type":"chat","reply":"helpful response"}\n\n'
+        
+        "INTENT DETECTION RULES:\n"
+        "Tasks → add_task/list_tasks/remove_task\n"
+        "Protein mentions (ate, had, consumed + food/grams) → log_protein\n"
+        "Workout/exercise mentions (gym, workout, sets, reps, lifted, trained) → log_workout\n"
+        "Health questions (how am I doing, stats, progress) → health_query\n"
+        "Everything else → chat\n\n"
+        
+        "HEALTH PARSING RULES:\n"
+        "• 'I had 60g protein from eggs' → log_protein: amount=60, food='eggs'\n"
+        "• 'ate chicken breast 50g protein' → log_protein: amount=50, food='chicken breast'\n"
+        "• 'drank a protein shake 40g' → log_protein: amount=40, food='protein shake'\n"
+        "• 'bench press 245 x6 felt easy' → log_workout: exercises=[{name:'Bench Press',weight:245,reps:6,sets:1,notes:'felt easy'}]\n"
+        "• 'did push day, bench 245x6 and tricep pushdowns' → log_workout with multiple exercises\n"
+        "• 'finished leg day' → log_workout: workout_type='Legs', no exercise details\n"
+        "• 'how am I doing today' → health_query\n\n"
+        
+        "PROGRESSION DETECTION:\n"
+        "If user mentions 'felt easy', 'too light', 'could do more' → add notes field with that phrase so we can suggest progression.\n\n"
+        
+        "DATETIME PARSING RULES:\n"
         "1. 'in X minutes/hours' → Calculate exact ISO datetime from current time\n"
         "2. 'at 10pm today' → Use today's date with that time\n"
-        "3. 'tomorrow at 6pm' → Use tomorrow's date with that time\n"
+        "3. 'tomorrow at 6pm' → Use tomorrow's date\n"
         "4. 'Friday 3pm' → Next Friday at 3pm\n"
         "5. No time mentioned → set 'due' to null\n\n"
-        "Reminder Minutes:\n"
-        "- User says 'remind me 30 minutes before' → reminder_minutes: 30\n"
-        "- User says '2 hours before' → reminder_minutes: 120\n"
-        "- No custom reminder → reminder_minutes: 60 (default)\n\n"
-        "Examples:\n"
-        '"remind me gym tomorrow at 6pm" → {"type":"add_task","task":"gym","due":"2026-02-11T18:00:00","reminder_minutes":60,"reply":"Got it!"}\n'
-        '"pet harry in 5 minutes" → {"type":"add_task","task":"pet harry","due":"2026-02-10T22:30:00","reminder_minutes":60,"reply":"Added!"}\n'
-        '"remind me 30 min before meeting at 3pm today" → {"type":"add_task","task":"meeting","due":"2026-02-10T15:00:00","reminder_minutes":30,"reply":"Set!"}\n'
-        '"call mom" → {"type":"add_task","task":"call mom","due":null,"reminder_minutes":60,"reply":"Added!"}\n'
-        '"I finished gym" → {"type":"remove_task","task":"gym","reply":"Nice work!"}\n\n'
-        "Return JSON only, no extra text."
+        
+        "REMINDER MINUTES:\n"
+        "- 'remind me 30 min before' → reminder_minutes: 30\n"
+        "- '2 hours before' → reminder_minutes: 120\n"
+        "- No custom reminder → reminder_minutes: 60\n\n"
+        
+        "EXAMPLES:\n"
+        '"I had 60g protein from eggs" → {"type":"log_protein","amount":60,"food":"eggs","reply":"Logged 60g protein from eggs! 🥚"}\n'
+        '"bench press 245 x6 felt easy" → {"type":"log_workout","workout_type":"Push","notes":"bench felt easy","exercises":[{"name":"Bench Press","weight":245,"reps":6,"sets":1,"notes":"felt easy"}],"reply":"Logged bench press 245x6! 💪"}\n'
+        '"finished push day" → {"type":"log_workout","workout_type":"Push","notes":"push day","exercises":[],"reply":"Push day logged! 💪"}\n'
+        '"how am I doing today?" → {"type":"health_query","reply":"Let me check your stats!"}\n'
+        '"remind me gym tomorrow at 6pm" → {"type":"add_task","task":"gym","due":"2026-02-19T18:00:00","reminder_minutes":60,"reply":"Got it!"}\n\n'
+        
+        "MULTIPLE INTENTS IN ONE MESSAGE:\n"
+        "If a message contains multiple actions, return a JSON ARRAY with one object per action.\n"
+        "Example: 'I had 60g protein from eggs, bench press 245x6, and a protein shake 40g'\n"
+        "Returns:\n"
+        '[\n'
+        '  {"type":"log_protein","amount":60,"food":"eggs","reply":"Logged 60g from eggs! 🥚"},\n'
+        '  {"type":"log_workout","workout_type":"Push","exercises":[{"name":"Bench Press","weight":245,"reps":6,"sets":1,"notes":""}],"reply":"Bench press logged! 💪"},\n'
+        '  {"type":"log_protein","amount":40,"food":"protein shake","reply":"Logged 40g from shake! 🥤"}\n'
+        ']\n\n'
+        "Always return an ARRAY when there are 2+ actions. Single object only for truly single actions.\n\n"
+
+        "Return JSON only. No extra text. Single object for single action."
     )
+
     
     headers = {
         "x-api-key": ANTHROPIC_API_KEY,
