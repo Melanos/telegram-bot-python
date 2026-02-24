@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-23
+
+### Added
+- **Week 3 Complete: Reading Tracker** 📚
+  - Natural language book logging ("Started reading Atomic Habits by James Clear")
+  - Progress tracking with page updates ("On page 127 of Atomic Habits")
+  - Book completion marking ("Finished reading Atomic Habits")
+  - Book removal with fuzzy matching ("Remove Atomic from reading list")
+  - AI-powered intent recognition for reading commands
+  - Interactive reading list display in stats
+  
+- **Database Layer (database/db_manager.py)**
+  - Added `ReadingLog` SQLAlchemy model with fields:
+    - `telegram_id`, `book_title`, `author`, `current_page`, `total_pages`
+    - `status` (reading/finished/paused), `started_date`, `finished_date`, `notes`
+  - 5 new DatabaseManager methods:
+    - `log_book_start()` - Add or re-activate a book
+    - `log_book_progress()` - Update page, auto-creates book if doesn't exist
+    - `log_book_finished()` - Mark complete with timestamp
+    - `remove_book()` - Fuzzy match delete via `.ilike()`
+    - `get_reading_stats()` - Fetch all books sorted by status
+
+- **AI Layer (api_handlers.py)**
+  - Added Section 4: Reading Tracking to Claude system prompt
+  - 4 new intents: `log_book_start`, `log_book_progress`, `log_book_finished`, `remove_book`
+  - Intent detection rules for "reading", "book", "started", "finished", "remove" phrases
+  - 5 examples covering all reading scenarios
+
+- **Bot Logic (main.py)**
+  - 4 intent handlers in `chat_ai()` router for reading operations
+  - `handle_reading()` command function with args detection
+  - "📚 Reading List" text shortcut handler
+  - Enhanced `/stats` with reading section showing:
+    - Active books with progress percentages
+    - Recently finished books
+  - Updated `/help` with reading commands and natural language examples
+
+- **UI (ui_helpers.py)**
+  - Added "📚 Reading List" button in menu keyboard
+  - Paired with "🔔 My Alerts" for balanced layout
+
+- **Commands (commands.py)**
+  - Registered `/reading` command for quick access
+
+### Fixed
+- **Button Press Bug**: Button text "Reading List" was being captured as book title
+  - Fixed with `startswith('/reading')` check in handler
+- **Progress Update on Non-Existent Book**: Silently failed without creating entry
+  - Fixed with auto-create logic in `log_book_progress()`
+- **Ghost "Reading List" DB Entry**: Cleaned via direct database query
+
+### Parked for Later
+- Voice Input (#7) - Groq Whisper integration plan ready
+- Interest Profile (#9) - Preferences table already built
+- News Digest (#10) - NewsAPI.org free tier integration
+
+---
+
 ## [2.1.0] - 2026-02-18
 
 ### Added

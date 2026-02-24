@@ -31,7 +31,8 @@ def create_main_menu_keyboard():
     
     # Stock alerts button
     keyboard.add(
-        telebot.types.KeyboardButton("🔔 My Alerts")
+        telebot.types.KeyboardButton("📚 Reading List"),
+        telebot.types.KeyboardButton("🔔 My Alerts"),
     )
     
     return keyboard

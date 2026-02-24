@@ -78,7 +78,93 @@ Ask about your progress in natural language.
 
 ---
 
-## 📋 Core Task Management
+## � Reading Tracker
+
+### Book Logging
+Track your reading progress with natural language commands.
+
+**Start a Book**:
+```
+"Started reading Atomic Habits by James Clear"
+"Reading The 4-Hour Work Week"
+"/reading Atomic Habits"
+```
+
+**Update Progress**:
+```
+"On page 127 of Atomic Habits"
+"Page 250 in Atomic Habits"
+"I'm on page 89"
+```
+
+**Mark as Finished**:
+```
+"Finished reading Atomic Habits"
+"Done with The 4-Hour Work Week"
+```
+
+**Remove a Book**:
+```
+"Remove Atomic from reading list"
+"Delete 4-Hour Work Week"
+```
+
+---
+
+### Reading Stats
+View your reading list and progress.
+
+**Command**: `/reading` or tap "📚 Reading List" button
+
+**Display Format**:
+```
+📚 Your Reading List:
+
+📖 Currently Reading:
+1. Atomic Habits by James Clear
+   Progress: 127/320 pages (40%)
+   Started: Feb 15, 2026
+
+2. The 4-Hour Work Week
+   Progress: 89/400 pages (22%)
+   Started: Feb 20, 2026
+
+✅ Recently Finished:
+3. Deep Work by Cal Newport
+   Finished: Feb 10, 2026
+```
+
+**Features**:
+- Progress percentage calculation
+- Sorted by status (reading → finished → paused)
+- Date tracking for accountability
+- Auto-created entries when logging progress
+
+---
+
+### Database Storage
+All reading data persisted to SQLite with the following schema:
+
+**ReadingLog Table**:
+- `telegram_id` - User identifier
+- `book_title` - Book name
+- `author` - Author name (optional)
+- `current_page` - Current reading position
+- `total_pages` - Total pages (optional)
+- `status` - reading | finished | paused
+- `started_date` - When book was added
+- `finished_date` - Completion timestamp
+- `notes` - Personal reading notes
+
+**AI Intent Detection**:
+- Recognizes reading-related phrases
+- Extracts book title, author, and page numbers
+- Fuzzy matching for book removal
+- Auto-creates entries when updating progress
+
+---
+
+## �📋 Core Task Management
 
 ### Natural Language Task Creation
 Create tasks using conversational language without rigid command syntax.

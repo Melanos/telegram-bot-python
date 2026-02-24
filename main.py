@@ -496,49 +496,71 @@ def send_help(message):
     keyboard = create_main_menu_keyboard()
     bot.reply_to(message, help_text, parse_mode="Markdown", reply_markup=keyboard)
 
-@bot.message_handler(commands=['protein'])
-def handle_log_protein(message):
-    """Log protein intake. Usage: /protein 50 chicken breast"""
+@bot.message_handler(commands=['help'])
+def send_help(message):
+    """Handle /help command."""
     if message.from_user.id != ALLOWED_USER_ID:
         return
     
-    try:
-        parts = message.text.split(maxsplit=2)
-        if len(parts) < 2:
-            bot.reply_to(message, "Usage: /protein <amount> [food description]\nExample: /protein 50 chicken breast")
-            return
+    help_text = (
+        "🤖 *Your Personal AI Assistant*\n\n"
         
-        amount = float(parts[1])
-        notes = parts[2] if len(parts) > 2 else None
+        "💬 *Natural Language (Just Talk!)*\n"
+        "• 'I had 60g protein from eggs'\n"
+        "• 'Bench press 245 x6 felt easy'\n"
+        "• 'Finished push day'\n"
+        "• 'Remind me to call mom tomorrow at 6pm'\n"
+        "• 'How am I doing today?'\n"
+        "• 'I just started Atomic Habits'\n"
+        "• 'I'm on page 87 of Atomic Habits'\n"
+        "• 'I finished Deep Work'\n\n"
         
-        telegram_id = str(message.from_user.id)
+        "📋 *Task Management:*\n"
+        "• `/addtask <description>` - Add a task\n"
+        "• `/listtasks` - Show all tasks\n"
+        "• `/donetask <number>` - Complete a task\n\n"
         
-        # Returns a dict now
-        result = db.log_protein(telegram_id, amount, notes)
-        total_protein = result['protein_consumed']
+        "🏋️ *Health Tracking:*\n"
+        "• `/protein <amount> [food]` - Log protein\n"
+        "  Example: `/protein 50 chicken breast`\n"
+        "• `/workout <type> - <notes>` - Log workout\n"
+        "  Example: `/workout Push - chest day`\n"
+        "• `/stats` - Show today's progress\n"
+        "• `/history` - Show last 7 days\n"
+        "• `/weekly` - Show 7-day summary & trends\n"
+        "• `/setgoal protein 180` - Set protein goal\n"
+        "• `/setgoal calories 2500` - Set calorie goal\n"
+        "• `/resettoday` - Reset today's data\n\n"
+
+        "📚 *Reading Tracker:*\n"
+        "• `/reading` - View your reading list\n"
+        "• `/reading <title>` - Start tracking a book\n"
+        "  Example: `/reading Atomic Habits`\n"
+        "• Natural language works too:\n"
+        "  'I just started Deep Work'\n"
+        "  'I'm on page 120 of Atomic Habits'\n"
+        "  'I finished The Lean Startup'\n\n"
         
-        # Get user's target
-        user = db.get_user(telegram_id)
-        target = user.protein_target if user else 180
+        "📈 *Stock Tracking:*\n"
+        "• `/stock SYMBOL` - Check price\n"
+        "  Example: `/stock AAPL`\n"
+        "• `/alert SYMBOL PRICE [above|below]` - Set alert\n"
+        "  Example: `/alert ETH-USD 2000 below`\n"
+        "• `/alerts` - View active alerts\n"
+        "• `/removealert SYMBOL` - Remove alert\n\n"
         
-        percentage = int((total_protein / target) * 100)
+        "🗄️ *Database:*\n"
+        "• `/dbstats` - Show database statistics\n\n"
         
-        response = f"✅ Logged {amount}g protein"
-        if notes:
-            response += f" ({notes})"
-        response += f"\n\n📊 Today: {total_protein}g / {target}g ({percentage}%)"
+        "⚙️ *Other:*\n"
+        "• `/menu` - Show menu keyboard\n"
+        "• `/help` - Show this message\n\n"
         
-        if total_protein >= target:
-            response += "\n🎉 Goal reached!"
-        
-        bot.reply_to(message, response)
-        
-    except ValueError:
-        bot.reply_to(message, "❌ Amount must be a number. Example: /protein 50")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
-        import traceback
-        print(traceback.format_exc())
+        "💡 *Tip:* Skip the commands — just talk naturally and I'll figure it out! 🧠"
+    )
+    
+    keyboard = create_main_menu_keyboard()
+    bot.reply_to(message, help_text, parse_mode="Markdown", reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['workout'])
@@ -632,8 +654,6 @@ def handle_stats(message):
         # Workout
         if health and health.workout_completed:
             response += f"\n💪 Workout: ✅ {health.workout_type or 'Completed'}\n"
-            
-            # Show logged exercises if available
             if health.exercises:
                 for ex in health.exercises:
                     line = f"   • {ex.get('name', 'Exercise')}"
@@ -645,7 +665,24 @@ def handle_stats(message):
         else:
             response += "\n💪 Workout: Not completed yet\n"
 
-        
+        # ✅ NEW — Reading section
+        books = db.get_reading_stats(telegram_id)
+        if books:
+            currently_reading = [b for b in books if b.status == "reading"]
+            finished = [b for b in books if b.status == "finished"]
+
+            response += f"\n📚 Reading: {len(currently_reading)} active · {len(finished)} finished\n"
+            for book in currently_reading:
+                progress = ""
+                if book.current_page and book.total_pages:
+                    pct = int(book.current_page / book.total_pages * 100)
+                    progress = f" — pg {book.current_page}/{book.total_pages} ({pct}%)"
+                elif book.current_page:
+                    progress = f" — pg {book.current_page}"
+                response += f"   📖 {book.book_title}{progress}\n"
+        else:
+            response += "\n📚 Reading: Nothing tracked yet\n"
+
         bot.reply_to(message, response, parse_mode="Markdown")
         
     except Exception as e:
@@ -868,6 +905,54 @@ def weekly_stats_command(message):
         import traceback
         print(traceback.format_exc())
 
+@bot.message_handler(commands=['reading'])
+def handle_reading(message):
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    
+    telegram_id = str(message.from_user.id)
+    
+    # Only parse args for actual /reading command, not button press
+    if message.text and message.text.startswith('/reading'):
+        args = message.text.split()[1:]  # e.g. /reading Atomic Habits → ["Atomic", "Habits"]
+    else:
+        args = []  # Button press — show list
+
+    if args:
+        title = " ".join(args)
+        db.log_book_start(telegram_id, title)
+        bot.reply_to(message, 
+            f"📚 Now tracking: *{title}*\nSay 'I'm on page X of {title}' to update progress!",
+            parse_mode="Markdown")
+        return
+
+    # Show reading list
+    books = db.get_reading_stats(telegram_id)
+    if not books:
+        bot.reply_to(message,
+            "📚 No books tracked yet!\n\n"
+            "Try:\n"
+            "• /reading Atomic Habits\n"
+            "• 'I just started Deep Work'\n"
+            "• 'I'm on page 87 of Atomic Habits'"
+        )
+        return
+
+    msg = "📚 *Your Reading List*\n\n"
+    for book in books:
+        emoji = "📖" if book.status == "reading" else "✅" if book.status == "finished" else "⏸"
+        progress = ""
+        if book.current_page and book.total_pages:
+            pct = int(book.current_page / book.total_pages * 100)
+            progress = f" — pg {book.current_page}/{book.total_pages} ({pct}%)"
+        elif book.current_page:
+            progress = f" — pg {book.current_page}"
+        author = f" _{book.author}_" if book.author else ""
+        msg += f"{emoji} *{book.book_title}*{author}{progress}\n"
+
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
+
 def handle_ai_workout_log(message, item):
     """Handle AI-detected workout log from natural language."""
     try:
@@ -1012,6 +1097,7 @@ def chat_ai(message):
         bot.register_next_step_handler(msg, process_protein_input)
         return
     
+    
     if text == "💪 Log Workout":
         msg = bot.reply_to(message, "What workout? (e.g., Push - chest day)")
         bot.register_next_step_handler(msg, process_workout_input)
@@ -1024,6 +1110,11 @@ def chat_ai(message):
     if text == "📅 History":
         handle_history(message)
         return
+    
+    if text == "📚 Reading List":
+        handle_reading(message)
+        return
+
 
     # Natural language stats triggers
     if any(phrase in text.lower() for phrase in [
@@ -1103,7 +1194,42 @@ def chat_ai(message):
         
         elif reply_type == "log_protein":
             handle_ai_protein_log(message, item)
-            
+        
+        elif reply_type == "log_book_start":
+            title = (item.get("title") or "").strip()
+            author = item.get("author")
+            total_pages = item.get("total_pages")
+            if title:
+                db.log_book_start(str(message.from_user.id), title, author, total_pages)
+                reply_messages.append(reply_text or f"📚 Now tracking *{title}*!")
+            else:
+                reply_messages.append("📚 What book are you reading?")
+
+        elif reply_type == "log_book_progress":
+            title = (item.get("title") or "").strip()
+            page = item.get("page")
+            if title and page:
+                db.log_book_progress(str(message.from_user.id), title, int(page))
+                reply_messages.append(reply_text or f"📖 Page {page} saved for *{title}*!")
+            else:
+                reply_messages.append("📖 Which book and what page?")
+
+        elif reply_type == "log_book_finished":
+            title = (item.get("title") or "").strip()
+            if title:
+                db.log_book_finished(str(message.from_user.id), title)
+                reply_messages.append(reply_text or f"✅ Finished *{title}*! What did you think?")
+            else:
+                reply_messages.append("Which book did you finish?")
+
+        elif reply_type == "remove_book":
+            title = (item.get("title") or "").strip()
+            if title:
+                db.remove_book(str(message.from_user.id), title)
+                reply_messages.append(reply_text or f"🗑️ Removed *{title}* from your reading list!")
+            else:
+                reply_messages.append("Which book do you want to remove?")
+
 
         elif reply_type == "log_workout":
             handle_ai_workout_log(message, item)

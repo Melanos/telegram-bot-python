@@ -28,6 +28,7 @@ def register_commands(bot: TeleBot):
         BotCommand("weekly", "View 7-day summary and trends"),
         BotCommand("setgoal", "Set goals (e.g., /setgoal protein 180)"),
         BotCommand("resettoday", "Reset today's health data"),
+        BotCommand("reading", "📚 View or add books you're reading"),
 
         # Stocks
         BotCommand("stock", "Check stock price (e.g., /stock AAPL)"),

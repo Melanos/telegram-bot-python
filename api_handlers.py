@@ -75,12 +75,20 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
         
         "3. GENERAL:\n"
         '• chat:        {"type":"chat","reply":"helpful response"}\n\n'
+
+        "4. READING TRACKING:\n"
+        '• log_book_start:    {"type":"log_book_start","title":"book name","author":"name or null","total_pages":null,"reply":"confirmation"}\n'
+        '• log_book_progress: {"type":"log_book_progress","title":"book name","page":87,"reply":"confirmation"}\n'
+        '• log_book_finished: {"type":"log_book_finished","title":"book name","reply":"confirmation"}\n'
+        '• remove_book:       {"type":"remove_book","title":"book name","reply":"confirmation"}\n\n'
         
         "INTENT DETECTION RULES:\n"
         "Tasks → add_task/list_tasks/remove_task\n"
         "Protein mentions (ate, had, consumed + food/grams) → log_protein\n"
         "Workout/exercise mentions (gym, workout, sets, reps, lifted, trained) → log_workout\n"
         "Health questions (how am I doing, stats, progress) → health_query\n"
+        "Reading mentions (reading, started, on page, finished + book title) → log_book_start/log_book_progress/log_book_finished\n"
+        "Remove/delete book mentions (remove, delete, stop tracking + book title) → remove_book\n"
         "Everything else → chat\n\n"
         
         "HEALTH PARSING RULES:\n"
@@ -112,7 +120,12 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
         '"bench press 245 x6 felt easy" → {"type":"log_workout","workout_type":"Push","notes":"bench felt easy","exercises":[{"name":"Bench Press","weight":245,"reps":6,"sets":1,"notes":"felt easy"}],"reply":"Logged bench press 245x6! 💪"}\n'
         '"finished push day" → {"type":"log_workout","workout_type":"Push","notes":"push day","exercises":[],"reply":"Push day logged! 💪"}\n'
         '"how am I doing today?" → {"type":"health_query","reply":"Let me check your stats!"}\n'
-        '"remind me gym tomorrow at 6pm" → {"type":"add_task","task":"gym","due":"2026-02-19T18:00:00","reminder_minutes":60,"reply":"Got it!"}\n\n'
+        '"remind me gym tomorrow at 6pm" → {"type":"add_task","task":"gym","due":"2026-02-19T18:00:00","reminder_minutes":60,"reply":"Got it!"}\n'
+        '"I just started Atomic Habits" → {"type":"log_book_start","title":"Atomic Habits","author":null,"total_pages":null,"reply":"📚 Tracking Atomic Habits! Let me know your progress."}\n'
+        '"I\'m on page 87 of Atomic Habits" → {"type":"log_book_progress","title":"Atomic Habits","page":87,"reply":"📖 Page 87 saved!"}\n'
+        '"I finished Atomic Habits" → {"type":"log_book_finished","title":"Atomic Habits","reply":"✅ Finished Atomic Habits! What did you think?"}\n'
+        '"Remove Atomic Habits from my reading list" → {"type":"remove_book","title":"Atomic Habits","reply":"🗑️ Removed Atomic Habits from your reading list!"}\n'
+        '"Stop tracking Deep Work" → {"type":"remove_book","title":"Deep Work","reply":"🗑️ Removed Deep Work from your reading list!"}\n\n'
         
         "MULTIPLE INTENTS IN ONE MESSAGE:\n"
         "If a message contains multiple actions, return a JSON ARRAY with one object per action.\n"

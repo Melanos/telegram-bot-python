@@ -57,6 +57,20 @@ class Conversation(Base):
     extra_data = Column(JSON)  # Store extra context
 
 
+class ReadingLog(Base):
+    __tablename__ = "reading_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(String, index=True)  # matches your pattern, not user_id
+    book_title = Column(String)
+    author = Column(String)
+    current_page = Column(Integer, default=0)
+    total_pages = Column(Integer)
+    status = Column(String, default="reading")  # reading | finished | paused
+    started_date = Column(DateTime, default=datetime.utcnow)
+    finished_date = Column(DateTime)
+    notes = Column(Text)
+
 class HealthTracking(Base):
     __tablename__ = "health_tracking"
     
@@ -265,6 +279,90 @@ class DatabaseManager:
         finally:
             session.close()
 
+    # ========== Reading Operations ==========
+
+    def log_book_start(self, telegram_id, title, author=None, total_pages=None):
+        session = self.get_session()
+        try:
+            existing = session.query(ReadingLog)\
+                .filter(ReadingLog.telegram_id == telegram_id)\
+                .filter(ReadingLog.book_title == title)\
+                .first()
+            
+            if existing:
+                existing.status = "reading"
+                existing.started_date = datetime.utcnow()
+            else:
+                book = ReadingLog(
+                    telegram_id=telegram_id,
+                    book_title=title,
+                    author=author,
+                    total_pages=total_pages
+                )
+                session.add(book)
+            session.commit()
+        finally:
+            session.close()
+    
+    def log_book_progress(self, telegram_id, title, current_page):
+        session = self.get_session()
+        try:
+            book = session.query(ReadingLog)\
+                .filter(ReadingLog.telegram_id == telegram_id)\
+                .filter(ReadingLog.book_title == title)\
+                .first()
+            
+            if book:
+                book.current_page = current_page
+            else:
+                # Auto-create book if it doesn't exist yet
+                book = ReadingLog(
+                    telegram_id=telegram_id,
+                    book_title=title,
+                    current_page=current_page
+                )
+                session.add(book)
+            
+            session.commit()
+        finally:
+            session.close()
+
+
+    def log_book_finished(self, telegram_id, title):
+        session = self.get_session()
+        try:
+            book = session.query(ReadingLog)\
+                .filter(ReadingLog.telegram_id == telegram_id)\
+                .filter(ReadingLog.book_title == title)\
+                .first()
+            if book:
+                book.status = "finished"
+                book.finished_date = datetime.utcnow()
+                session.commit()
+        finally:
+            session.close()
+
+    def get_reading_stats(self, telegram_id):
+        session = self.get_session()
+        try:
+            return session.query(ReadingLog)\
+                .filter(ReadingLog.telegram_id == telegram_id)\
+                .order_by(ReadingLog.status.asc(), ReadingLog.started_date.desc())\
+                .all()
+        finally:
+            session.close()
+
+
+    def remove_book(self, telegram_id, title):
+        session = self.get_session()
+        try:
+            session.query(ReadingLog)\
+                .filter(ReadingLog.telegram_id == telegram_id)\
+                .filter(ReadingLog.book_title.ilike(f"%{title}%"))\
+                .delete(synchronize_session=False)
+            session.commit()
+        finally:
+            session.close()
 
 # ==================== INITIALIZE ====================
 

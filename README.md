@@ -114,6 +114,17 @@ Open Telegram, start a chat with your bot, and try:
 - `/stock AAPL` - Check stock prices
 - `/history` - View 7-day health trends
 
+## Documentation
+
+For detailed documentation, see the [`docs/`](docs/) folder:
+- [📝 Changelog](docs/CHANGELOG.md) - Version history and release notes
+- [✨ Features](docs/FEATURES.md) - Complete feature documentation
+- [🗺️ Roadmap](docs/ROADMAP.md) - Future plans and development timeline
+- [📅 30-Day Roadmap](docs/ROADMAP_30days.md) - Sprint planning
+- [🐛 Known Issues](docs/KNOWN_ISSUES.md) - Current limitations and workarounds
+- [🤝 Contributing](docs/CONTRIBUTING.md) - Contribution guidelines
+- [🔧 Refactoring Notes](docs/REFACTORING.md) - Code restructuring documentation
+
 ## Learn More
 
 - [Telebot Documentation](https://pypi.org/project/pyTelegramBotAPI/)
