@@ -1004,7 +1004,71 @@ def handle_news(message):
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error fetching news: {e}")
+@bot.callback_query_handler(func=lambda c: c.data.startswith("rm_int:"))
+def cb_remove_interest_tag(call):
+    """Remove a single interest tag when tapped."""
+    if call.from_user.id != ALLOWED_USER_ID:
+        bot.answer_callback_query(call.id, "Not authorized")
+        return
 
+    tag = call.data.split(":", 1)[1]
+    telegram_id = str(call.from_user.id)
+    db.remove_interest(telegram_id, tag)
+    bot.answer_callback_query(call.id, f"🗑️ Removed: {tag}")
+
+    # Refresh the interests menu in-place
+    tags = db.get_interests(telegram_id)
+    if not tags:
+        bot.edit_message_text(
+            "🏷️ *Your Interest Profile*\n\nNo tags left! Just chat and I'll auto-detect them.",
+            call.message.chat.id,
+            call.message.id,
+            parse_mode="Markdown"
+        )
+    else:
+        markup = types.InlineKeyboardMarkup(row_width=3)
+        markup.add(*[types.InlineKeyboardButton(f"❌ {t}", callback_data=f"rm_int:{t}") for t in tags])
+        markup.add(
+            types.InlineKeyboardButton("🗑️ Clear All", callback_data="int_clear"),
+            types.InlineKeyboardButton("✅ Done", callback_data="int_done")
+        )
+        tag_display = " · ".join(f"`{t}`" for t in tags)
+        bot.edit_message_text(
+            f"🏷️ *Your Interest Profile* — {len(tags)} tags\n{tag_display}\n\nTap a tag to remove it",
+            call.message.chat.id,
+            call.message.id,
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "int_clear")
+def cb_clear_all_interests(call):
+    """Clear all interest tags."""
+    if call.from_user.id != ALLOWED_USER_ID:
+        bot.answer_callback_query(call.id, "Not authorized")
+        return
+
+    telegram_id = str(call.from_user.id)
+    tags = db.get_interests(telegram_id)
+    for tag in tags:
+        db.remove_interest(telegram_id, tag)
+
+    bot.answer_callback_query(call.id, "🗑️ All interests cleared!")
+    bot.edit_message_text(
+        "🏷️ *Your Interest Profile*\n\nAll tags cleared! Just chat and I'll auto-detect your interests.",
+        call.message.chat.id,
+        call.message.id,
+        parse_mode="Markdown"
+    )
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "int_done")
+def cb_interests_done(call):
+    """Dismiss the interests menu."""
+    bot.answer_callback_query(call.id, "✅ Saved!")
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=None)
+    
 @bot.callback_query_handler(func=lambda c: c.data.startswith("news_more:") or c.data.startswith("news_less:"))
 def cb_news_feedback(call):
     action, topic = call.data.split(":", 1)
