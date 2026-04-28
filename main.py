@@ -20,7 +20,7 @@ from ui_helpers import (
     format_task_added_message,
     format_reminder_message
 )
-from api_handlers import get_stock_price, call_claude_api, track_interests
+from api_handlers import get_stock_price, call_claude_api, track_interests, fetch_news, summarize_article
 from reminder_system import check_reminders
 from commands import register_commands
 from stock_alerts import AlertManager, start_alert_monitoring
