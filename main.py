@@ -953,6 +953,69 @@ def handle_reading(message):
 
     bot.reply_to(message, msg, parse_mode="Markdown")
 
+@bot.message_handler(commands=['news'])
+def handle_news(message):
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+
+    telegram_id = str(message.from_user.id)
+    tags = db.get_interests(telegram_id)
+
+    if not tags:
+        bot.reply_to(message,
+            "🏷️ No interests set yet!\n\n"
+            "Add some first: `/interests investing`\n"
+            "Or just chat — I'll auto-detect them.",
+            parse_mode="Markdown")
+        return
+
+    bot.reply_to(message, f"📰 Fetching news for: {', '.join(tags[:5])}...")
+
+    try:
+        articles = fetch_news(tags)
+        if not articles:
+            bot.reply_to(message, "😕 No articles found. Try broadening your interests.")
+            return
+
+        for article in articles[:5]:
+            title = article.get("title", "")
+            description = article.get("description") or article.get("content") or ""
+            url = article.get("url", "")
+            source = article.get("source", {}).get("name", "")
+
+            summary = summarize_article(title, description)
+
+            markup = types.InlineKeyboardMarkup()
+            markup.row(
+                types.InlineKeyboardButton("👍 More like this", callback_data=f"news_more:{title[:40]}"),
+                types.InlineKeyboardButton("👎 Less like this", callback_data=f"news_less:{title[:40]}")
+            )
+
+            text = (
+                f"📰 *{title}*\n"
+                f"_{source}_\n\n"
+                f"{summary}\n\n"
+                f"[Read more]({url})"
+            )
+            bot.send_message(message.chat.id, text,
+                parse_mode="Markdown",
+                reply_markup=markup,
+                disable_web_page_preview=True)
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error fetching news: {e}")
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("news_more:") or c.data.startswith("news_less:"))
+def cb_news_feedback(call):
+    action, topic = call.data.split(":", 1)
+    telegram_id = str(call.from_user.id)
+
+    if action == "news_more":
+        db.add_interest(telegram_id, topic[:30])
+        bot.answer_callback_query(call.id, "👍 Got it — more like this!")
+    else:
+        db.remove_interest(telegram_id, topic[:30])
+        bot.answer_callback_query(call.id, "👎 Got it — less like this!")
 
 def handle_ai_workout_log(message, item):
     """Handle AI-detected workout log from natural language."""
@@ -1156,6 +1219,10 @@ def chat_ai(message):
         send_interests_menu(message.chat.id, str(message.from_user.id))
         return
 
+    if text == "📰 News Digest":
+        handle_news(message)
+        return
+    
     # Natural language stats triggers
     if any(phrase in text.lower() for phrase in [
         "how am i doing", "my stats", "my progress", 

@@ -36,6 +36,9 @@ def register_commands(bot: TeleBot):
         BotCommand("alerts", "View your active alerts"),
         BotCommand("removealert", "Remove an alert (e.g., /removealert IONQ)"),
 
+        # News
+        BotCommand("news", "Get news digest based on your interests"),
+
         # Database
         BotCommand("dbstats", "Show database statistics"),
         BotCommand("interests", "View or add your interest tags"),

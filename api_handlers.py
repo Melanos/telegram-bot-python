@@ -10,11 +10,41 @@ from config import ANTHROPIC_API_KEY, MIN_API_INTERVAL
 import threading
 import re
 import json
-
+import requests
 
 # Rate limiting
 _last_api_call = 0
 
+
+def fetch_news(tags: list[str], page_size: int = 5) -> list[dict]:
+    """Fetch headlines from NewsAPI matching interest tags."""
+    query = " OR ".join(tags[:5])  # NewsAPI supports OR queries
+    url = "https://newsapi.org/v2/everything"
+    params = {
+        "q": query,
+        "pageSize": page_size,
+        "sortBy": "publishedAt",
+        "language": "en",
+        "apiKey": os.getenv("NEWS_API_KEY")
+    }
+    resp = requests.get(url, params=params, timeout=10)
+    data = resp.json()
+    return data.get("articles", [])
+
+
+def summarize_article(title: str, description: str) -> str:
+    """Use Claude Haiku to summarize an article to 1-2 sentences."""
+    prompt = (
+        f"Summarize this news article in 1-2 sentences, plain and direct:\n\n"
+        f"Title: {title}\nDescription: {description}"
+    )
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    msg = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=100,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return msg.content[0].text.strip()
 
 def get_stock_price(symbol: str) -> str:
     """
