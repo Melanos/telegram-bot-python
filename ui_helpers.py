@@ -41,6 +41,11 @@ def create_main_menu_keyboard():
     telebot.types.KeyboardButton("📰 News Digest"),
     telebot.types.KeyboardButton("🏷️ My Interests"),
     )
+
+    ## Daily Brief
+    keyboard.add(
+        telebot.types.KeyboardButton("🌅 Morning Brief")
+    )
     
     return keyboard
 

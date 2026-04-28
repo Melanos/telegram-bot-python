@@ -42,6 +42,10 @@ def register_commands(bot: TeleBot):
         # Database
         BotCommand("dbstats", "Show database statistics"),
         BotCommand("interests", "View or add your interest tags"),
+
+        # News & Briefing
+        BotCommand("news", "Get news digest based on your interests"),
+        BotCommand("brief", "Get your morning briefing now"),
     ]
     
     bot.set_my_commands(commands)

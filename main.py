@@ -1359,6 +1359,9 @@ def chat_ai(message):
         handle_news(message)
         return
     
+    if text == "🌅 Morning Brief":
+        send_morning_brief(message.chat.id, str(message.from_user.id))
+    return
 
     # Natural language stats triggers
     if any(phrase in text.lower() for phrase in [
