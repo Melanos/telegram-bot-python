@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-04-27
+
+### Added
+- **Week 3 Complete: Interest Profile, News Digest & Morning Brief** 🗞️
+
+- **Interest Profile (#9)**
+  - Claude Haiku-powered tag extraction from user messages and book topics
+  - `/interests` command displaying current tags as inline buttons
+  - Add / Remove / Clear buttons with live inline refresh (no full message resend)
+  - `interests` table in SQLite with per-user tag storage
+  - Auto-seeding of interests from reading and news activity
+
+- **Personalized News Digest (#10)**
+  - Per-tag article fetching from quality sources: Reuters, Bloomberg, The Verge, Wired
+  - Relevancy sorting so the most on-topic stories surface first
+  - 👍 / 👎 feedback buttons that directly update interest weights in real time
+  - Deduplication of stories fetched across multiple interest tags
+  - `/news` command returning 3–5 stories with title, 1–2 sentence summary, and link
+
+- **Morning Brief**
+  - `/brief` command for an on-demand personal briefing
+  - Scheduled delivery at **8:30 AM** via APScheduler
+  - Brief sections: upcoming tasks due today, news headlines matching interests, workout suggestion based on last session, current reading progress, daily protein target reminder
+
+### Fixed
+- **Interest remove buttons** were silently failing — fixed callback routing in inline handler
+- **News feedback callbacks** (`👍`/`👎`) were not being dispatched — wired into `CallbackQueryHandler`
+- **Duplicate `/help`** command definition removed (was registered twice in `main.py`)
+- **Command registration** — `commands.py` updated with `/interests`, `/news`, `/brief`
+
+---
+
 ## [2.2.0] - 2026-02-23
 
 ### Added

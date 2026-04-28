@@ -62,80 +62,125 @@ Goal: Build a personal AI assistant that helps with health, learning, content, s
 
 ---
 
-## Week 3 – Voice Input + Reading & News
+## Week 3 – Voice Input + Reading & News ✅ COMPLETE!
 
-### 7. Voice Input v1 (High Priority)
+### 7. Voice Input v1
 - [ ] Handle Telegram voice messages (detect audio/voice message type).
-- [ ] Download audio file and send to a speech-to-text service (e.g., Whisper API or similar).
+- [ ] Download audio file and send to Groq Whisper for transcription.
 - [ ] Route transcribed text through existing `chat_ai` natural-language pipeline.
-- [ ] Optimize for common use cases:
-  - [ ] Voice tasks (“Remind me to pay the bill tomorrow at 9pm.”).
-  - [ ] Voice gym logs (“Bench 245 for 6, felt easy.”).
-  - [ ] Voice protein logs (“60 grams protein from a shake.”).
+- [ ] Support: voice tasks, gym logs, protein logs.
+- **Status**: Parked — full design ready, estimated 15-min drop-in for Week 4.
 
-### 8. Reading Tracker
-- [ ] Add `reading` table (book title, author, start date, current page, total pages optional).
-- [ ] Implement:
-  - [ ] `/reading start <book>` and natural “I’m starting <book>.” intent.
-  - [ ] `/reading progress <page>` and natural “I’m at page <n> now.” intent.
-- [ ] Add simple stats:
-  - [ ] Average pages/day over last 7 days.
-  - [ ] Estimated completion date at current pace.
+### 8. Reading Tracker ✅
+- [x] Added `reading` table (book title, author, start date, current page, total pages optional).
+- [x] Implemented natural language intents: start, progress, finished, remove.
+- [x] `/reading` command + "📚 Reading List" button shortcut.
+- [x] Stats section in `/stats` showing active books with progress % and recently finished.
 
-### 9. Interest Profile
-- [ ] Maintain an `interests` or `preferences` structure (e.g., tags like `AI`, `ML`, `finance`, `lifting`, `tech hardware`, `books`).
-- [ ] Update interests based on:
-  - [ ] Explicit statements (“I’m into X/Y/Z.”).
-  - [ ] Topics of books, articles, and news clicked or requested.
-- [ ] Add command `/interests` to view and lightly edit current interest tags.
+### 9. Interest Profile ✅
+- [x] `interests` table with per-user tag storage.
+- [x] Claude Haiku-powered tag extraction from messages, books, and news activity.
+- [x] `/interests` command with add / remove / clear inline buttons and live refresh.
 
-### 10. Personalized News Digest v1
-- [ ] Integrate a news API or curated RSS feeds.
-- [ ] Implement `/news`:
-  - [ ] Fetch 3–5 stories relevant to current interests.
-  - [ ] Return title + 1–2 sentence summary + link.
-- [ ] Add lightweight feedback:
-  - [ ] “More like this” / “Less like this” buttons to tune interests.
+### 10. Personalized News Digest ✅
+- [x] Per-tag fetching from quality sources: Reuters, Bloomberg, The Verge, Wired.
+- [x] Relevancy sorting and story deduplication across tags.
+- [x] `/news` command returning 3–5 stories with title, summary, and link.
+- [x] 👍 / 👎 feedback buttons that update interest weights in real time.
+
+### Morning Brief (Bonus) ✅
+- [x] `/brief` command for on-demand personal briefing.
+- [x] Scheduled delivery at **8:30 AM** via APScheduler.
+- [x] Sections: tasks due today, news headlines, workout suggestion, reading progress, protein target.
 
 ---
 
-## Week 4 – Calendar, Inbox Foundations & Proactive Brain
+## Week 4 – High Impact Features & Intelligence Upgrades
 
-### 11. Personal Calendar Integration
-- [ ] Choose provider: Google Calendar or personal Outlook.
-- [ ] Implement auth for a personal account (local dev first).
-- [ ] Add intents/commands:
-  - [ ] “Schedule <event> on <date> at <time>.” → creates calendar event.
-  - [ ] `/today` → today’s events + tasks + protein goal.
-- [ ] Upgrade Morning Briefing to v2:
-  - [ ] Include today’s events in the daily briefing.
+### 🔥 High Priority
 
-### 12. Personal Email Summary (No Auto-Send)
-- [ ] Connect a personal email inbox via API (e.g., Gmail).
-- [ ] Implement:
-  - [ ] `/inbox` or “Anything important in my email?” → top N emails summarized by simple priority rules.
-- [ ] Draft replies (manual send only for now):
-  - [ ] “Draft a reply to [subject/sender] saying <message>.” → returns suggested text.
+| # | Feature | Notes |
+|---|---------|-------|
+| #7 | Voice Input | Groq Whisper — ~15-min drop-in |
+| #11 | Finance Tracker | Log investments, ETF positions, P&L |
+| #12 | Weekly Sunday Recap | Auto-sent at 7 PM Sunday |
+| #13 | ⚖️ VeSync Scale Integration | pyvesync → weight sync, +5 lb nag, daily auto-check at 8 AM |
 
-### 13. Proactive Nudges v1
-- [ ] Time- and pattern-based reminders:
-  - [ ] Gym: “You usually train around 6 PM; it’s 5:40—plan today’s session?”
-  - [ ] Reading: “You haven’t read your current book in 3 days; want a 10-page session tonight?”
-  - [ ] Protein: “So far today: Xg/Yg protein; consider another meal/shake.”
-- [ ] Add simple controls:
-  - [ ] `/nudges on`, `/nudges off`.
-  - [ ] Configurable quiet hours (e.g., no nudges 22:00–07:00).
+#### 7. Voice Input v1 (Drop-In)
+- [ ] Handle Telegram voice messages.
+- [ ] Download audio and send to **Groq Whisper** for transcription (~15-min integration).
+- [ ] Route transcribed text through existing `chat_ai` pipeline.
+- [ ] Support: voice tasks, gym logs, protein logs.
 
-### 14. Weekly Life Review
-- [ ] Extend `/weekly` into multi-domain summary:
-  - [ ] Fitness: workouts, average protein, consistency.
-  - [ ] Reading: pages read and streak.
-  - [ ] Tasks: tasks created vs completed.
-- [ ] Optionally schedule a weekly summary (e.g., Sunday evening).
+#### 11. Finance Tracker
+- [ ] Log investment purchases: "Bought 5 shares of VTI at $230."
+- [ ] Track ETF/stock positions with cost basis.
+- [ ] `/portfolio` command — current holdings, total invested, unrealized P&L.
+- [ ] Brief integration — show daily % change for tracked tickers each morning.
+
+#### 12. Weekly Sunday Recap
+- [ ] APScheduler job at **7:00 PM Sunday**.
+- [ ] Sections: workout consistency (days trained, muscle groups hit), average daily protein vs goal, books finished or progressed, top 3 news topics of the week.
+- [ ] Warn if a muscle group (e.g., legs) was skipped all week.
+
+#### 13. ⚖️ VeSync Scale Integration
+- [ ] Connect via `pyvesync` library to pull latest weigh-in automatically.
+- [ ] Daily weight auto-check at **8:00 AM** (before morning brief).
+- [ ] Nag message if weight is +5 lb above baseline: "You're 5 lb up — worth checking in."
+- [ ] Weight shown in `/brief` — latest weigh-in + trend (up/down vs last 7 days).
+- [ ] Weight shown in `/stats` — current weight + delta from baseline.
+
+### 🧠 Intelligence Upgrades
+
+#### Smarter Workout Rotation
+- [ ] Detect actual Push / Pull / Legs gaps from workout history.
+- [ ] Proactively warn if legs haven’t been trained in 5+ days.
+- [ ] Suggest next session type based on last logged session.
+
+#### Protein Trend Alerts
+- [ ] Track consecutive days below protein goal.
+- [ ] Proactive nudge: "You’ve missed your goal 3 days in a row — consider an extra shake today."
+
+#### News Deduplication
+- [ ] Collapse same story appearing from multiple sources into a single card.
+- [ ] Show source count ("3 sources covering this").
+
+### 🛠️ Quality of Life
+
+#### /brief Personalization
+- [ ] `/brief config` — toggle which sections appear (e.g., skip news on weekends).
+- [ ] Per-section enable/disable stored in preferences table.
+
+#### Stock Summary in Brief
+- [ ] Show tracked tickers with daily % change in the morning brief automatically.
+
+#### Reading Goal
+- [ ] Set a "finish by" date per book.
+- [ ] Brief shows days remaining + pages/day needed to hit the deadline.
+
+#### Weight in /brief & /stats
+- [ ] Latest weigh-in + 7-day trend in morning brief.
+- [ ] `/stats` shows current weight + delta from baseline.
 
 ---
 
-## Stretch Goals (If Time Allows)
-- [ ] More advanced voice UX (e.g., “hands-free mode” sequences).
-- [ ] Simple expense logging and high-level financial summary.
+## Week 5+ – Bigger Swings
+
+### Telegram Web Dashboard
+- [ ] Visual charts for protein history, workout frequency, reading pace, and weight trend.
+- [ ] Hosted as a simple web page linked from the bot.
+
+### Claude Memory
+- [ ] Weekly summarization of patterns (gym, protein, news topics, books, weight).
+- [ ] Inject summary into Claude system prompt for persistent context across sessions.
+
+### Expense Logging
+- [ ] Natural language: "Spent $45 on groceries." → categorized entry.
+- [ ] Monthly spend summary by category.
+- [ ] `/expenses` command with category breakdown.
+
+---
+
+## Stretch Goals
+- [ ] More advanced voice UX (e.g., "hands-free mode" sequences).
 - [ ] More advanced pattern recognition and long-term trend insights across health, learning, and productivity.
