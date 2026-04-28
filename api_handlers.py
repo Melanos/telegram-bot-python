@@ -17,36 +17,53 @@ import os
 _last_api_call = 0
 
 
-def fetch_news(tags: list[str], page_size: int = 10) -> list[dict]:
-    """Fetch headlines from NewsAPI matching interest tags."""
-    # Use top 3 most specific tags only
-    priority_tags = [t for t in tags if t in [
-        "ai", "etfs", "finance", "investing", "stocks", "crypto",
-        "interest rates", "federal reserve", "machine learning", "python"
-    ]]
-    query_tags = priority_tags[:3] if priority_tags else tags[:3]
-    query = " OR ".join(f'"{t}"' for t in query_tags)  # Exact phrase matching
+def fetch_news(tags: list[str], page_size: int = 5) -> list[dict]:
+    """Fetch headlines spreading across all interest tags."""
+    if not tags:
+        return []
 
-    url = "https://newsapi.org/v2/everything"
-    params = {
-        "q": query,
-        "pageSize": page_size,
-        "sortBy": "relevancy",        # relevancy > publishedAt for quality
-        "language": "en",
-        "domains": (                   # Whitelist quality sources
-            "reuters.com,bloomberg.com,wsj.com,cnbc.com,"
-            "techcrunch.com,theverge.com,wired.com,"
-            "investopedia.com,marketwatch.com,ft.com"
-        ),
-        "apiKey": os.getenv("NEWS_API_KEY")
-    }
-    resp = requests.get(url, params=params, timeout=10)
-    data = resp.json()
-    articles = data.get("articles", [])
+    all_articles = []
+    seen_urls = set()
 
-    # Filter out removed/null articles
-    return [a for a in articles if a.get("title") and a["title"] != "[Removed]"]
+    # Fetch 1-2 articles per tag to spread coverage
+    articles_per_tag = max(1, page_size // len(tags))
 
+    quality_domains = (
+        "reuters.com,bloomberg.com,wsj.com,cnbc.com,"
+        "techcrunch.com,theverge.com,wired.com,"
+        "investopedia.com,marketwatch.com,ft.com"
+    )
+
+    for tag in tags:
+        params = {
+            "q": f'"{tag}"',
+            "pageSize": articles_per_tag + 2,  # fetch extra, dedupe later
+            "sortBy": "relevancy",
+            "language": "en",
+            "domains": quality_domains,
+            "apiKey": os.getenv("NEWS_API_KEY")
+        }
+        try:
+            resp = requests.get(
+                "https://newsapi.org/v2/everything",
+                params=params,
+                timeout=10
+            )
+            articles = resp.json().get("articles", [])
+            for a in articles:
+                url = a.get("url", "")
+                title = a.get("title", "")
+                if url and url not in seen_urls and title and title != "[Removed]":
+                    a["_matched_tag"] = tag  # track which tag matched
+                    all_articles.append(a)
+                    seen_urls.add(url)
+                    if len([x for x in all_articles if x["_matched_tag"] == tag]) >= articles_per_tag:
+                        break
+        except Exception as e:
+            print(f"[fetch_news] Error for tag '{tag}': {e}")
+            continue
+
+    return all_articles[:page_size]
 
 def summarize_article(title: str, description: str) -> str:
     """Use Claude Haiku to summarize an article to 1-2 sentences."""
