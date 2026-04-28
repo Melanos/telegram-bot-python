@@ -191,7 +191,21 @@ def send_morning_brief(chat_id: int, telegram_id: str):
                 lines.append("")
         except Exception:
             pass
-
+        
+        # CURRENTLY READING  ← ADD THIS BLOCK HERE
+        try:
+            books = db.get_reading_stats(telegram_id)
+            if books:
+                reading_now = [b for b in books if b.status == "reading"]
+                if reading_now:
+                    lines.append("📚 *Currently Reading*")
+                    for b in reading_now:
+                        progress = f" — pg {b.current_page}" if b.current_page else ""
+                        lines.append(f"• {b.book_title}{progress}")
+                    lines.append("")
+        except Exception:
+            pass
+        
         # PROTEIN
         user = db.get_user(telegram_id)
         target = user.protein_target if user else 180
@@ -516,19 +530,22 @@ def send_help(message):
     
     help_text = (
         "🤖 *Your Personal AI Assistant*\n\n"
-        
+
         "💬 *Natural Language (Just Talk!)*\n"
         "• 'I had 60g protein from eggs'\n"
         "• 'Bench press 245 x6 felt easy'\n"
         "• 'Finished push day'\n"
         "• 'Remind me to call mom tomorrow at 6pm'\n"
-        "• 'How am I doing today?'\n\n"
-        
+        "• 'How am I doing today?'\n"
+        "• 'I just started Atomic Habits'\n"
+        "• 'I'm on page 87 of Atomic Habits'\n"
+        "• 'I finished Deep Work'\n\n"
+
         "📋 *Task Management:*\n"
         "• `/addtask <description>` - Add a task\n"
         "• `/listtasks` - Show all tasks\n"
         "• `/donetask <number>` - Complete a task\n\n"
-        
+
         "🏋️ *Health Tracking:*\n"
         "• `/protein <amount> [food]` - Log protein\n"
         "  Example: `/protein 50 chicken breast`\n"
@@ -540,7 +557,12 @@ def send_help(message):
         "• `/setgoal protein 180` - Set protein goal\n"
         "• `/setgoal calories 2500` - Set calorie goal\n"
         "• `/resettoday` - Reset today's data\n\n"
-        
+
+        "📚 *Reading Tracker:*\n"
+        "• `/reading` - View your reading list\n"
+        "• `/reading <title>` - Start tracking a book\n"
+        "  Example: `/reading Atomic Habits`\n\n"
+
         "📈 *Stock Tracking:*\n"
         "• `/stock SYMBOL` - Check price\n"
         "  Example: `/stock AAPL`\n"
@@ -548,14 +570,21 @@ def send_help(message):
         "  Example: `/alert ETH-USD 2000 below`\n"
         "• `/alerts` - View active alerts\n"
         "• `/removealert SYMBOL` - Remove alert\n\n"
-        
+
+        "🏷️ *Interests & News:*\n"
+        "• `/interests` - View or edit your interest tags\n"
+        "• `/news` - Get news digest based on your interests\n\n"
+
+        "🌅 *Daily Brief:*\n"
+        "• `/brief` - Get your morning briefing now\n\n"
+
         "🗄️ *Database:*\n"
         "• `/dbstats` - Show database statistics\n\n"
-        
+
         "⚙️ *Other:*\n"
         "• `/menu` - Show menu keyboard\n"
         "• `/help` - Show this message\n\n"
-        
+
         "💡 *Tip:* Skip the commands — just talk naturally and I'll figure it out! 🧠"
     )
     
