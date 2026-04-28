@@ -5,7 +5,7 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import EST
 import telebot
-import os
+
 
 
 

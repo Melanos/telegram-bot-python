@@ -11,6 +11,7 @@ import threading
 import re
 import json
 import requests
+import os
 
 # Rate limiting
 _last_api_call = 0
