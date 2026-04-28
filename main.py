@@ -3,6 +3,7 @@ import time
 import signal
 import sys
 import telebot
+from telebot import types
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
