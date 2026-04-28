@@ -1152,7 +1152,6 @@ def chat_ai(message):
         return
 
     if text == "🏷️ My Interests":
-        from commands import send_interests_menu
         send_interests_menu(message.chat.id, str(message.from_user.id))
         return
 
@@ -1271,7 +1270,6 @@ def chat_ai(message):
                 reply_messages.append("Which book do you want to remove?")
         
         elif reply_type == "view_interests":
-            from commands import send_interests_menu
             send_interests_menu(message.chat.id, str(message.from_user.id))
             return
 
