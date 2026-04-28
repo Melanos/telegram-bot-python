@@ -6,6 +6,7 @@ import telebot
 from telebot import types
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime
 from database import init_database
 from database.db_helpers import ensure_user_profile, log_conversation
@@ -82,6 +83,13 @@ def reminder_job():
 
 # Start the reminder scheduler
 scheduler.add_job(reminder_job, 'interval', minutes=1)
+
+scheduler.add_job(
+    lambda: send_morning_brief(ALLOWED_USER_ID, str(ALLOWED_USER_ID)),
+    CronTrigger(hour=8, minute=30, timezone=EST),
+    id="morning_brief"
+)
+
 scheduler.start()
 
 
@@ -139,6 +147,63 @@ def process_workout_input(message):
         handle_log_workout(message)
     except:
         bot.reply_to(message, "❌ Please describe your workout\nExample: Push - chest day")
+
+def send_morning_brief(chat_id: int, telegram_id: str):
+    try:
+        now_est = datetime.now(EST)
+        day_name = now_est.strftime("%A")
+        lines = [f"🌅 *Good morning! Here's your {day_name} brief*\n"]
+
+        # NEWS
+        tags = db.get_interests(telegram_id)
+        if tags:
+            articles = fetch_news(tags, page_size=3)
+            if articles:
+                lines.append("📰 *Top Stories*")
+                for a in articles:
+                    lines.append(f"• [{a.get('title','')}]({a.get('url','')})")
+                lines.append("")
+
+        # TASKS DUE TODAY
+        tasks = task_manager.get_all_tasks()
+        today_tasks = [t for t in tasks if t.get("due") and
+                       t["due"].date() == now_est.date()]
+        if today_tasks:
+            lines.append("📋 *Due Today*")
+            for t in today_tasks:
+                lines.append(f"• {t['task']} — {t['due'].strftime('%I:%M %p')}")
+            lines.append("")
+
+        # WORKOUT SUGGESTION
+        try:
+            from database.db_manager import HealthTracking
+            session = db.get_session()
+            recent = session.query(HealthTracking)\
+                .filter(HealthTracking.telegram_id == telegram_id)\
+                .order_by(HealthTracking.date.desc()).limit(3).all()
+            session.close()
+            if recent and recent[0].workout_type:
+                rotation = {"Push": "Pull", "Pull": "Legs", "Legs": "Push"}
+                last_type = recent[0].workout_type
+                lines.append("💪 *Workout Suggestion*")
+                lines.append(f"• Last: {last_type}")
+                lines.append(f"• Today: *{rotation.get(last_type, 'Push')}* day")
+                lines.append("")
+        except Exception:
+            pass
+
+        # PROTEIN
+        user = db.get_user(telegram_id)
+        target = user.protein_target if user else 180
+        health = db.get_today_health(telegram_id)
+        logged = health.protein_consumed if health else 0
+        lines.append(f"🥩 *Protein target: {target}g* — {logged}g logged so far")
+
+        bot.send_message(chat_id, "\n".join(lines),
+                         parse_mode="Markdown",
+                         disable_web_page_preview=True)
+    except Exception as e:
+        print(f"[Morning Brief] Error: {e}")
 
 # ============================================================================
 # BOT HANDLERS
@@ -1004,6 +1069,13 @@ def handle_news(message):
 
     except Exception as e:
         bot.reply_to(message, f"❌ Error fetching news: {e}")
+
+@bot.message_handler(commands=['brief'])
+def handle_brief(message):
+    if message.from_user.id != ALLOWED_USER_ID:
+        return
+    send_morning_brief(message.chat.id, str(message.from_user.id))
+
 @bot.callback_query_handler(func=lambda c: c.data.startswith("rm_int:"))
 def cb_remove_interest_tag(call):
     """Remove a single interest tag when tapped."""
@@ -1068,7 +1140,7 @@ def cb_interests_done(call):
     """Dismiss the interests menu."""
     bot.answer_callback_query(call.id, "✅ Saved!")
     bot.edit_message_reply_markup(call.message.chat.id, call.message.id, reply_markup=None)
-    
+
 @bot.callback_query_handler(func=lambda c: c.data.startswith("news_more:") or c.data.startswith("news_less:"))
 def cb_news_feedback(call):
     action, topic = call.data.split(":", 1)
@@ -1287,6 +1359,7 @@ def chat_ai(message):
         handle_news(message)
         return
     
+
     # Natural language stats triggers
     if any(phrase in text.lower() for phrase in [
         "how am i doing", "my stats", "my progress", 
