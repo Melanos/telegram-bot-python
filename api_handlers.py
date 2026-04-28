@@ -7,6 +7,9 @@ from datetime import datetime
 from config import EST
 from typing import Dict, Any, List, Union
 from config import ANTHROPIC_API_KEY, MIN_API_INTERVAL
+import threading
+import re
+import json
 
 
 # Rate limiting
@@ -81,6 +84,11 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
         '• log_book_progress: {"type":"log_book_progress","title":"book name","page":87,"reply":"confirmation"}\n'
         '• log_book_finished: {"type":"log_book_finished","title":"book name","reply":"confirmation"}\n'
         '• remove_book:       {"type":"remove_book","title":"book name","reply":"confirmation"}\n\n'
+
+        "5. INTEREST PROFILE:\n"
+        '• view_interests: {"type":"view_interests","reply":"sentence"}\n'
+        '• add_interest:   {"type":"add_interest","tag":"tag string","reply":"confirmation"}\n'
+        '• remove_interest:{"type":"remove_interest","tag":"tag string","reply":"confirmation"}\n\n'
         
         "INTENT DETECTION RULES:\n"
         "Tasks → add_task/list_tasks/remove_task\n"
@@ -90,6 +98,8 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
         "Reading mentions (reading, started, on page, finished + book title) → log_book_start/log_book_progress/log_book_finished\n"
         "Remove/delete book mentions (remove, delete, stop tracking + book title) → remove_book\n"
         "Everything else → chat\n\n"
+        "Interest/topic mentions (interested in, love, hobby, curious about) → add_interest\n"
+        "Show my interests/topics/tags → view_interests\n"
         
         "HEALTH PARSING RULES:\n"
         "• 'I had 60g protein from eggs' → log_protein: amount=60, food='eggs'\n"
@@ -126,6 +136,9 @@ def call_claude_api(user_message: str) -> Union[List[Dict[str, Any]], Dict[str, 
         '"I finished Atomic Habits" → {"type":"log_book_finished","title":"Atomic Habits","reply":"✅ Finished Atomic Habits! What did you think?"}\n'
         '"Remove Atomic Habits from my reading list" → {"type":"remove_book","title":"Atomic Habits","reply":"🗑️ Removed Atomic Habits from your reading list!"}\n'
         '"Stop tracking Deep Work" → {"type":"remove_book","title":"Deep Work","reply":"🗑️ Removed Deep Work from your reading list!"}\n\n'
+        '"show my interests" → {"type":"view_interests","reply":"Here are your interest tags!"}\n'
+        '"I\'m really into ETF investing" → {"type":"add_interest","tag":"etf investing","reply":"Added ETF investing to your interests! 🏷️"}\n'
+        '"remove gym from my interests" → {"type":"remove_interest","tag":"gym","reply":"Removed gym from your interests."}\n'
         
         "MULTIPLE INTENTS IN ONE MESSAGE:\n"
         "If a message contains multiple actions, return a JSON ARRAY with one object per action.\n"
@@ -242,3 +255,59 @@ def _parse_claude_response(raw: str) -> Union[List[Dict[str, Any]], Dict[str, st
             "message": str(e),
             "raw": raw[:500]
         }
+# ── Interest Tag Extraction ───────────────────────────────────────────────────
+
+def _extract_interest_tags(telegram_id: str, message_text: str) -> None:
+    """
+    Calls Claude Haiku to extract interest tags from a message.
+    Runs in a background daemon thread — never blocks the bot response.
+    """
+    from database.db_manager import DatabaseManager
+    db = DatabaseManager()
+
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    data = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 150,
+        "system": (
+            "Extract 3-7 short interest/topic tags from the user message.\n"
+            "Rules: lowercase, 1-3 words max. Only extract if genuine interest is shown — ignore filler/chit-chat.\n"
+            "Return ONLY a raw JSON array of strings like: [\"investing\", \"python\", \"gym\"]\n"
+            "Return [] if nothing meaningful to extract."
+        ),
+        "messages": [{"role": "user", "content": message_text}]
+    }
+
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers=headers,
+            json=data,
+            timeout=15
+        )
+        resp.raise_for_status()
+        raw = resp.json()["content"][0]["text"].strip()
+        raw = re.sub(r"```(?:json)?", "", raw).strip().strip("`")
+
+        tags = json.loads(raw)
+        clean = [t.lower().strip() for t in tags if isinstance(t, str) and t.strip()]
+        if clean:
+            added = db.upsert_interests(telegram_id, clean)
+            if added:
+                print(f"[Interests] +{added} new tag(s) for {telegram_id}: {clean}")
+    except Exception as e:
+        print(f"[Interests] Extraction failed: {e}")
+
+
+def track_interests(telegram_id: str, message_text: str) -> None:
+    """Non-blocking entry point. Call after every user message."""
+    threading.Thread(
+        target=_extract_interest_tags,
+        args=(telegram_id, message_text),
+        daemon=True
+    ).start()
+

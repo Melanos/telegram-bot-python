@@ -279,6 +279,104 @@ class DatabaseManager:
         finally:
             session.close()
 
+    # ========== Interest Profile Operations ==========
+
+    def get_interests(self, telegram_id: str) -> list[str]:
+        """Return all interest tags sorted alphabetically."""
+        session = self.get_session()
+        try:
+            rows = session.query(Preference)\
+                .filter(Preference.telegram_id == telegram_id)\
+                .filter(Preference.category == "interest")\
+                .order_by(Preference.key)\
+                .all()
+            return [row.key for row in rows]
+        finally:
+            session.close()
+
+    def add_interest(self, telegram_id: str, tag: str) -> bool:
+        """Add a tag. Returns True if new, False if already existed."""
+        tag = tag.lower().strip()
+        session = self.get_session()
+        try:
+            exists = session.query(Preference)\
+                .filter(Preference.telegram_id == telegram_id)\
+                .filter(Preference.category == "interest")\
+                .filter(Preference.key == tag)\
+                .first()
+            if exists:
+                return False
+            session.add(Preference(
+                telegram_id=telegram_id,
+                category="interest",
+                key=tag,
+                value=tag,
+                confidence_score=1.0
+            ))
+            session.commit()
+            return True
+        finally:
+            session.close()
+
+    def remove_interest(self, telegram_id: str, tag: str) -> bool:
+        """Remove a tag. Returns True if it existed and was deleted."""
+        tag = tag.lower().strip()
+        session = self.get_session()
+        try:
+            row = session.query(Preference)\
+                .filter(Preference.telegram_id == telegram_id)\
+                .filter(Preference.category == "interest")\
+                .filter(Preference.key == tag)\
+                .first()
+            if not row:
+                return False
+            session.delete(row)
+            session.commit()
+            return True
+        finally:
+            session.close()
+
+    def upsert_interests(self, telegram_id: str, tags: list[str]) -> int:
+        """Bulk-add tags from Claude extraction. Skips duplicates. Returns count added."""
+        added = 0
+        session = self.get_session()
+        try:
+            existing = {
+                row.key for row in session.query(Preference)
+                .filter(Preference.telegram_id == telegram_id)
+                .filter(Preference.category == "interest")
+                .all()
+            }
+            for tag in tags:
+                tag = tag.lower().strip()
+                if tag and tag not in existing:
+                    session.add(Preference(
+                        telegram_id=telegram_id,
+                        category="interest",
+                        key=tag,
+                        value=tag,
+                        confidence_score=1.0
+                    ))
+                    existing.add(tag)
+                    added += 1
+            if added:
+                session.commit()
+            return added
+        finally:
+            session.close()
+
+    def clear_interests(self, telegram_id: str) -> int:
+        """Delete all interest tags for a user. Returns count deleted."""
+        session = self.get_session()
+        try:
+            deleted = session.query(Preference)\
+                .filter(Preference.telegram_id == telegram_id)\
+                .filter(Preference.category == "interest")\
+                .delete()
+            session.commit()
+            return deleted
+        finally:
+            session.close()
     # ========== Reading Operations ==========
 
     def log_book_start(self, telegram_id, title, author=None, total_pages=None):
@@ -363,6 +461,8 @@ class DatabaseManager:
             session.commit()
         finally:
             session.close()
+
+            
 
 # ==================== INITIALIZE ====================
 

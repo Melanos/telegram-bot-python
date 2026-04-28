@@ -19,7 +19,7 @@ from ui_helpers import (
     format_task_added_message,
     format_reminder_message
 )
-from api_handlers import get_stock_price, call_claude_api
+from api_handlers import get_stock_price, call_claude_api, track_interests
 from reminder_system import check_reminders
 from commands import register_commands
 from stock_alerts import AlertManager, start_alert_monitoring
@@ -1056,6 +1056,42 @@ def handle_ai_protein_log(message, item):
         import traceback
         print(traceback.format_exc())
 
+def send_interests_menu(chat_id: int, telegram_id: str):
+    """Build and send the interest profile menu."""
+    tags = db.get_interests(telegram_id)
+
+    if not tags:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(
+            "💡 Just chat — I'll detect your interests!",
+            callback_data="interest_noop"
+        ))
+        bot.send_message(
+            chat_id,
+            "🏷️ *Your Interest Profile*\n\n"
+            "No tags yet! Just chat naturally and I'll auto-detect your interests.\n\n"
+            "Or add one manually: `/interests investing`",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        return
+
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    markup.add(*[
+        types.InlineKeyboardButton(f"❌ {tag}", callback_data=f"rm_int:{tag}")
+        for tag in tags
+    ])
+    markup.add(
+        types.InlineKeyboardButton("🗑 Clear All", callback_data="int_clear"),
+        types.InlineKeyboardButton("✅ Done", callback_data="int_done")
+    )
+    tag_display = " • ".join(f"`{t}`" for t in tags)
+    bot.send_message(
+        chat_id,
+        f"🏷️ *Your Interest Profile* — {len(tags)} tags\n\n{tag_display}\n\n_Tap a tag to remove it_",
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 
 @bot.message_handler(func=lambda msg: True)
 def chat_ai(message):
@@ -1115,6 +1151,10 @@ def chat_ai(message):
         handle_reading(message)
         return
 
+    if text == "🏷️ My Interests":
+        from commands import send_interests_menu
+        send_interests_menu(message.chat.id, str(message.from_user.id))
+        return
 
     # Natural language stats triggers
     if any(phrase in text.lower() for phrase in [
@@ -1229,7 +1269,24 @@ def chat_ai(message):
                 reply_messages.append(reply_text or f"🗑️ Removed *{title}* from your reading list!")
             else:
                 reply_messages.append("Which book do you want to remove?")
+                elif reply_type == "view_interests":
+            from commands import send_interests_menu
+            send_interests_menu(message.chat.id, str(message.from_user.id))
+            return
 
+        elif reply_type == "add_interest":
+            tag = (item.get("tag") or "").lower().strip()
+            if tag:
+                added = db.add_interest(str(message.from_user.id), tag)
+                text_reply = f"✅ Added *{tag}* to your interests! 🏷️" if added else f"ℹ️ *{tag}* already in your interests."
+                reply_messages.append(text_reply)
+
+        elif reply_type == "remove_interest":
+            tag = (item.get("tag") or "").lower().strip()
+            if tag:
+                removed = db.remove_interest(str(message.from_user.id), tag)
+                text_reply = f"🗑 Removed *{tag}* from your interests." if removed else f"ℹ️ *{tag}* wasn't in your interests."
+                reply_messages.append(text_reply)
 
         elif reply_type == "log_workout":
             handle_ai_workout_log(message, item)
@@ -1239,7 +1296,7 @@ def chat_ai(message):
             # Route to existing /stats handler
             handle_stats(message)
             return
-
+        
         else:  # "chat"
             reply_messages.append(reply_text or "Got it 👍")
     
@@ -1247,8 +1304,10 @@ def chat_ai(message):
     if reply_messages:
         final_reply = "\n\n".join(reply_messages)
         bot.reply_to(message, final_reply)
-
         log_conversation(db, message, final_reply)
+
+    # Background interest extraction — never blocks response
+    track_interests(str(message.from_user.id), text_raw)
 
 # ============================================================================
 # MAIN

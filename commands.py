@@ -38,6 +38,7 @@ def register_commands(bot: TeleBot):
 
         # Database
         BotCommand("dbstats", "Show database statistics"),
+        BotCommand("interests", "View or add your interest tags"),
     ]
     
     bot.set_my_commands(commands)

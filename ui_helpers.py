@@ -33,6 +33,7 @@ def create_main_menu_keyboard():
     keyboard.add(
         telebot.types.KeyboardButton("📚 Reading List"),
         telebot.types.KeyboardButton("🔔 My Alerts"),
+        telebot.types.KeyboardButton("🏷️ My Interests")
     )
     
     return keyboard
