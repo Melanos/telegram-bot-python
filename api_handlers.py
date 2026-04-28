@@ -39,13 +39,31 @@ def summarize_article(title: str, description: str) -> str:
         f"Summarize this news article in 1-2 sentences, plain and direct:\n\n"
         f"Title: {title}\nDescription: {description}"
     )
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    msg = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=100,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return msg.content[0].text.strip()
+
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    data = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 100,
+        "system": "You summarize news articles in 1-2 sentences. Be concise and direct.",
+        "messages": [{"role": "user", "content": prompt}]
+    }
+
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers=headers,
+            json=data,
+            timeout=15
+        )
+        resp.raise_for_status()
+        return resp.json()["content"][0]["text"].strip()
+    except Exception as e:
+        print(f"[summarize_article] Error: {e}")
+        return description[:150] if description else title
 
 def get_stock_price(symbol: str) -> str:
     """
