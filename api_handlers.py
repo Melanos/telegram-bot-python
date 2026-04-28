@@ -17,20 +17,35 @@ import os
 _last_api_call = 0
 
 
-def fetch_news(tags: list[str], page_size: int = 5) -> list[dict]:
+def fetch_news(tags: list[str], page_size: int = 10) -> list[dict]:
     """Fetch headlines from NewsAPI matching interest tags."""
-    query = " OR ".join(tags[:5])  # NewsAPI supports OR queries
+    # Use top 3 most specific tags only
+    priority_tags = [t for t in tags if t in [
+        "ai", "etfs", "finance", "investing", "stocks", "crypto",
+        "interest rates", "federal reserve", "machine learning", "python"
+    ]]
+    query_tags = priority_tags[:3] if priority_tags else tags[:3]
+    query = " OR ".join(f'"{t}"' for t in query_tags)  # Exact phrase matching
+
     url = "https://newsapi.org/v2/everything"
     params = {
         "q": query,
         "pageSize": page_size,
-        "sortBy": "publishedAt",
+        "sortBy": "relevancy",        # relevancy > publishedAt for quality
         "language": "en",
+        "domains": (                   # Whitelist quality sources
+            "reuters.com,bloomberg.com,wsj.com,cnbc.com,"
+            "techcrunch.com,theverge.com,wired.com,"
+            "investopedia.com,marketwatch.com,ft.com"
+        ),
         "apiKey": os.getenv("NEWS_API_KEY")
     }
     resp = requests.get(url, params=params, timeout=10)
     data = resp.json()
-    return data.get("articles", [])
+    articles = data.get("articles", [])
+
+    # Filter out removed/null articles
+    return [a for a in articles if a.get("title") and a["title"] != "[Removed]"]
 
 
 def summarize_article(title: str, description: str) -> str:
