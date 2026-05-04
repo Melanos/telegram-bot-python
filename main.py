@@ -1328,6 +1328,7 @@ def chat_ai(message):
     if message.from_user.id != ALLOWED_USER_ID:
         return
 
+    
     ensure_user_profile(db, message)
 
     text_raw = message.text or ""
@@ -1390,7 +1391,7 @@ def chat_ai(message):
     
     if text == "🌅 Morning Brief":
         send_morning_brief(message.chat.id, str(message.from_user.id))
-    return
+        return
 
     # Natural language stats triggers
     if any(phrase in text.lower() for phrase in [
